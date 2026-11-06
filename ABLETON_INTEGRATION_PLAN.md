@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Integration Plan
 
-*Rev. 5 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `49c8dad`; P1 done, see §4)*
+*Rev. 6 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; P1 done, including the Worker scheduler, see §4)*
 *This plan lives outside the repository. Any external tools (bridge, Max for Live device, template) go in `D:\personal\apps\sycore-ableton\`. Italian version: `PIANO_INTEGRAZIONE_ABLETON.md`.*
 
 ---
@@ -133,9 +133,9 @@ Without this phase, SY.CORE's apps cannot "live" inside a Live set.
 - EXT/INT badge with BPM and position, an **AUDIO** warning when the audio clock runs below 97%, and a diagnostics line with **Copy diagnostics** (30 s history).
 - **Tested with Live 12 on Windows MIDI Services** (`SYC CTRL A` → Live, `SYC CTRL B` → SY.CORE) at 75 BPM: phase error within ±10 ms, no jumps, with the window in focus or not, as long as the audio clock stays near 100%.
 - **Fixed along the way** (a bug in `midi-service.ts`, all inputs): the ingress listener could sit on two objects for the same port, so every message was handled twice (Live at 75 BPM read as 150).
-- **Still open:**
-  - The Tone.js transport runs on the **audio clock**: with a heavy panel open (the FM-1 Emulator: audio clock at 85% in focus, 45% in the background) the apps can't keep Live's time. Next step: a **MIDI scheduler in a Worker**, on the system clock, for the apps that only play MIDI.
-  - The apps start from their pattern start on Live's bar line, not mid-pattern.
+- **Worker scheduler — done** (branch `feat/11-06/midi-worker-scheduler`, merged as `8cf2a2d`): a **CLK AUDIO / CLK SYS** switch in the Drum Machine, Sequencer and Chord Prog (default AUDIO, as before). SYS runs the steps on the system clock (a Worker timer, 100 ms lookahead), re-anchored on every beat of Live, and sends the notes from a Worker-timed queue at their times (strums and arps included). Steps found late after a page stall pass silently; a late start joins Live's current bar in phase. **Tested:** in sync with Live with the FM-1 Emulator open (audio clock 45–70%), in focus and in the background.
+- **Found on the way:** on Windows MIDI Services loopbacks (e.g. `MIDIWIN (A)` → Emulator X3) a **timestamped Web MIDI send is ignored**: the message leaves at once, so note-on and note-off of a scheduled note arrive together and the note doesn't sound. CLK SYS doesn't rely on timestamps. In CLK AUDIO the scheduled sends to real ports (Arpeggiator, per-track MIDI Out) still use them: to be handled per port (option, or measured by P4's loopback ping).
+- **Still open:** the apps start from their pattern start on Live's bar line, not mid-pattern. Apps still on CLK AUDIO depend on the audio clock.
 
 ### Phase 2 — "Ableton Live" node in MIDI Flow (5–6 days, inspector included)
 - A new node type groups `SYC IN`, `SYC CTRL` and `SYC OUT` and exposes **16 lanes, one per `SYC IN` channel**, each with a label (e.g. "3 · Pad").
@@ -586,7 +586,8 @@ Each port shows up **both as an input and as an output** in every app: that is w
 | The apps drift with the tab hidden | Browser timer throttling | Separate window (and scheduler in a Worker, P1) |
 | SY.CORE shows twice Live's BPM | The same clock arriving twice (a loop back into the source, or a doubled input) | Fixed in P1; the diagnostics line shows clocks/s (24 × BPM / 60) and near-duplicates |
 | EXT drops to INT right after Play | The main thread busy starting the apps | Fixed in P1 (late checks skipped) |
-| The apps play out of time, with pauses; amber **AUDIO** badge | The audio thread is overloaded (audio clock < 97%), e.g. FM-1 Emulator open | Close heavy panels; MIDI scheduler in a Worker (next step) |
+| The apps play out of time, with pauses; amber **AUDIO** badge | The audio thread is overloaded (audio clock < 97%), e.g. FM-1 Emulator open | **CLK SYS** in the Drum Machine, Sequencer and Chord Prog; or close heavy panels |
+| A synth on a Windows MIDI Services loopback shows the notes but doesn't sound | Timestamped sends ignored on that port: note-on and note-off arrive together | **CLK SYS** in the app (Worker-timed sends) |
 
 ## 11. Repository structure
 

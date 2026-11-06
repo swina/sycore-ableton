@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 5 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `49c8dad`; F1 completata, vedi §4)*
+*Rev. 6 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; F1 completata, scheduler nel Worker compreso, vedi §4)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -133,9 +133,9 @@ Senza questa fase le app di SY.CORE non possono "vivere" dentro un set di Live.
 - Badge EXT/INT con BPM e posizione, avviso **AUDIO** quando il clock audio scende sotto il 97%, riga di diagnostica con **Copy diagnostics** (30 s di storico).
 - **Provata con Live 12 su Windows MIDI Services** (`SYC CTRL A` → Live, `SYC CTRL B` → SY.CORE) a 75 BPM: errore di fase entro ±10 ms, nessun salto, con la finestra in focus o no, finché il clock audio resta vicino al 100%.
 - **Corretto durante il lavoro** (un bug di `midi-service.ts`, tutti gli ingressi): il listener poteva restare agganciato a due oggetti della stessa porta, e ogni messaggio veniva elaborato due volte (Live a 75 BPM letto come 150).
-- **Ancora aperto:**
-  - Il trasporto di Tone.js avanza con il **clock audio**: con un pannello pesante aperto (l'FM-1 Emulator: clock audio all'85% in focus, al 45% in background) le app non riescono a tenere il tempo di Live. Prossimo passo: uno **scheduler MIDI in un Worker**, sull'orologio di sistema, per le app che suonano solo MIDI.
-  - Le app partono dall'inizio del loro pattern sulla battuta di Live, non a metà pattern.
+- **Scheduler nel Worker — completato** (branch `feat/11-06/midi-worker-scheduler`, mergiato come `8cf2a2d`): un interruttore **CLK AUDIO / CLK SYS** in Drum Machine, Sequencer e Chord Prog (default AUDIO, come prima). SYS fa girare gli step sull'orologio di sistema (timer in un Worker, 100 ms di anticipo), riallineati a ogni beat di Live, e manda le note da una coda temporizzata dal Worker al loro istante (strum e arpeggi compresi). Gli step trovati in ritardo dopo un blocco della pagina passano senza suonare; una partenza in ritardo entra in fase nella battuta in corso di Live. **Provato:** in sync con Live con l'FM-1 Emulator aperto (clock audio 45–70%), in focus e in background.
+- **Scoperto durante il lavoro:** sui loopback di Windows MIDI Services (ad esempio `MIDIWIN (A)` → Emulator X3) un **invio Web MIDI con timestamp viene ignorato**: il messaggio parte subito, quindi Note ON e Note OFF di una nota pianificata arrivano insieme e la nota non suona. CLK SYS non si affida ai timestamp. In CLK AUDIO gli invii pianificati verso le porte reali (Arpeggiatore, MIDI Out per traccia) li usano ancora: da gestire per porta (opzione, o misura con il loopback ping della F4).
+- **Ancora aperto:** le app partono dall'inizio del loro pattern sulla battuta di Live, non a metà pattern. Le app ancora in CLK AUDIO dipendono dal clock audio.
 
 ### Fase 2 — Nodo "Ableton Live" in MIDI Flow (5-6 giorni, inspector compreso)
 - Un nuovo tipo di nodo raggruppa `SYC IN`, `SYC CTRL` e `SYC OUT` ed espone **16 lane, una per canale di `SYC IN`**, ognuna con un'etichetta (es. "3 · Pad").
@@ -586,7 +586,8 @@ Ogni porta compare **sia come ingresso sia come uscita** in tutte le app: per qu
 | Le app vanno fuori tempo con la tab nascosta | Rallentamento dei timer del browser | Finestra separata (e scheduler in un Worker, F1) |
 | SY.CORE mostra il doppio del BPM di Live | Lo stesso clock che arriva due volte (un loop verso la sorgente, o un ingresso doppio) | Corretto nella F1; la riga di diagnostica mostra i clock/s (24 × BPM / 60) e i quasi-duplicati |
 | EXT passa a INT subito dopo il Play | Il thread principale occupato ad avviare le app | Corretto nella F1 (i controlli in ritardo vengono saltati) |
-| Le app suonano fuori tempo, con pause; badge **AUDIO** ambra | Thread audio sovraccarico (clock audio < 97%), ad esempio con l'FM-1 Emulator aperto | Chiudere i pannelli pesanti; scheduler MIDI in un Worker (prossimo passo) |
+| Le app suonano fuori tempo, con pause; badge **AUDIO** ambra | Thread audio sovraccarico (clock audio < 97%), ad esempio con l'FM-1 Emulator aperto | **CLK SYS** in Drum Machine, Sequencer e Chord Prog; oppure chiudere i pannelli pesanti |
+| Un synth su un loopback di Windows MIDI Services mostra le note ma non suona | Invii con timestamp ignorati su quella porta: Note ON e Note OFF arrivano insieme | **CLK SYS** nell'app (invii temporizzati dal Worker) |
 
 ## 11. Struttura dei repository
 
