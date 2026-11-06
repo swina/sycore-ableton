@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 4 · 2026-11-05 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `master`, commit `9074834`)*
+*Rev. 5 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `49c8dad`; F1 completata, vedi §4)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -103,8 +103,8 @@ In breve: il motore audio di Live, la Session View e la registrazione funzionano
 | Protezione dai loop di feedback sulle porte virtuali | ✅ (parziale) | `midi-service.ts:259` |
 | MIDI Actions (start, slot, preset da CC o Note) | ✅ | `src/lib/app-midi-actions.ts` |
 | Generatori: stili, euclideo, AI groove, Song Composer | ✅ | `drum-engine.js`, `song-composer.ts`, `ai-service.ts` |
-| **Clock in con aggancio della fase (Live master)** | ❌ solo rilevamento BPM | `core/midi/midi-transport.ts:166-190` |
-| **Song Position Pointer** | ❌ | — |
+| Clock in con aggancio della fase (Live master) | ✅ (F1) | `core/midi/external-clock.ts`, `composables/useExternalClockSync.ts` |
+| Song Position Pointer | ✅ (F1) | `core/midi/external-clock.ts` |
 | **Nodo "DAW" in Flow con lane per porta e canale** | ❌ | — |
 | **Mappa di controllo standard per le clip di Live** | ❌ (le Actions sono per singolo device) | — |
 | **Output delle app sincronizzato verso Live per la registrazione** | ⚠️ funziona, ma serve compensare la latenza | — |
@@ -123,6 +123,19 @@ Senza questa fase le app di SY.CORE non possono "vivere" dentro un set di Live.
   - `stop`, il default: le app si fermano;
   - `continua in INT`: le app proseguono con il clock interno all'ultimo BPM e il clock esterno si riaggancia al successivo Start di Live (scenario S8).
 - **Test:** macchina a stati del trasporto, SPP, aggancio della fase con tick simulati e jitter di ±2 ms, perdita del clock.
+
+#### 1.1 Stato (2026-11-06) — completata, branch `feat/rig-controller-ui`, commit `49c8dad`
+- **Clock › Source** nel pannello Sync della barra del trasporto: Internal (INT) o un ingresso MIDI (EXT). Alla perdita del clock: *Stop the apps* (default) o *Continue on INT*.
+- Start, Stop, SPP + Continue guidano le app abilitate in "Sync Apps to Transport"; partono sul primo clock dopo lo Start, o sulla battuta successiva di Live dopo un Continue a metà battuta.
+- Tempo: regressione lineare sull'ultima battuta (jitter ±2 ms → meno di 0,1 BPM). Aggancio della fase a ogni battuta: correzione PI fino a ±8% del tempo, salto quando l'errore supera 1/4 di beat.
+- La perdita del clock è controllata dal timer in Worker di Tone (funziona anche con la finestra in background); un controllo arrivato in ritardo perché il thread principale era bloccato viene saltato.
+- In EXT SY.CORE non genera un proprio clock. L'opzione **Forward clock to devices** (spenta di default) inoltra clock, Start/Stop e SPP di Live alle uscite con Clock / Transport attivi, mai alla porta sorgente né alla sua gemella del loopback.
+- Badge EXT/INT con BPM e posizione, avviso **AUDIO** quando il clock audio scende sotto il 97%, riga di diagnostica con **Copy diagnostics** (30 s di storico).
+- **Provata con Live 12 su Windows MIDI Services** (`SYC CTRL A` → Live, `SYC CTRL B` → SY.CORE) a 75 BPM: errore di fase entro ±10 ms, nessun salto, con la finestra in focus o no, finché il clock audio resta vicino al 100%.
+- **Corretto durante il lavoro** (un bug di `midi-service.ts`, tutti gli ingressi): il listener poteva restare agganciato a due oggetti della stessa porta, e ogni messaggio veniva elaborato due volte (Live a 75 BPM letto come 150).
+- **Ancora aperto:**
+  - Il trasporto di Tone.js avanza con il **clock audio**: con un pannello pesante aperto (l'FM-1 Emulator: clock audio all'85% in focus, al 45% in background) le app non riescono a tenere il tempo di Live. Prossimo passo: uno **scheduler MIDI in un Worker**, sull'orologio di sistema, per le app che suonano solo MIDI.
+  - Le app partono dall'inizio del loro pattern sulla battuta di Live, non a metà pattern.
 
 ### Fase 2 — Nodo "Ableton Live" in MIDI Flow (5-6 giorni, inspector compreso)
 - Un nuovo tipo di nodo raggruppa `SYC IN`, `SYC CTRL` e `SYC OUT` ed espone **16 lane, una per canale di `SYC IN`**, ognuna con un'etichetta (es. "3 · Pad").
@@ -372,7 +385,7 @@ SY.CORE non porta in Live qualcosa che gli manca per le clip. Applica lo stesso 
 **Posizionamento:** "il performance mode del rig, che Live sincronizza". Nei testi pubblici (paper, sito, UI) si usa un nome proprio, per esempio "Rig Performance Mode", senza citare FL Studio, che è un marchio di Image-Line; al massimo "ispirato ai performance mode dei DAW".
 
 #### 9.9 Stato del prototipo
-Branch `feat/rig-controller-ui` di `sycore-refactor`, non ancora committato.
+Branch `feat/rig-controller-ui` di `sycore-refactor`, commit `99c09f8` (pushato). Il branch contiene anche la F1 (commit `49c8dad`), che il Rig Controller userà al posto del suo clock simulato.
 - **Pannello "Rig Controller"** (Performance Tools, badge Prototype), con tre viste: Rig layout, Launchpad Mini MK1, AKAI MIDImix.
 - **Opzioni del §9.7** tutte funzionanti, con un clock simulato che sostituisce Live.
 - **Nessun MIDI inviato.**
@@ -516,6 +529,7 @@ Tre porte con questi nomi esatti, perché il wizard le riconosce per nome:
 `SYC IN` · `SYC CTRL` · `SYC OUT`
 - loopMIDI: scrivi il nome e premi "+", tre volte.
 - IAC: Finestra › Mostra Studio MIDI › IAC Driver › "Il dispositivo è online", poi aggiungi tre bus con quei nomi.
+- **Windows MIDI Services** (al posto di loopMIDI): un loopback è una **coppia di endpoint**, ad esempio `SYC CTRL A` e `SYC CTRL B`; quello che esce da A entra su B. Live usa il lato A, SY.CORE il lato B (Clock › Source = `SYC CTRL B`). SY.CORE riconosce la coppia e non manda mai il proprio clock al lato A. Nota: nelle nostre prove Live 12 è andato in crash disattivando le porte di Windows MIDI Services nelle Preferenze; attiva solo quello che serve (Output A: Sync) e lascia il resto com'è.
 
 Ogni porta compare **sia come ingresso sia come uscita** in tutte le app: per questo in Live ne serve solo una direzione (vedi sotto).
 
@@ -570,6 +584,9 @@ Ogni porta compare **sia come ingresso sia come uscita** in tutte le app: per qu
 | Note doppie o MIDI in loop | Input di `SYC IN` o `SYC CTRL` attivo in Live, o Monitor attivo sulla traccia di registrazione | Seguire la tabella del §10.3 |
 | Le app partono fuori battuta | Clock Type "Pattern" | Impostare "Song" |
 | Le app vanno fuori tempo con la tab nascosta | Rallentamento dei timer del browser | Finestra separata (e scheduler in un Worker, F1) |
+| SY.CORE mostra il doppio del BPM di Live | Lo stesso clock che arriva due volte (un loop verso la sorgente, o un ingresso doppio) | Corretto nella F1; la riga di diagnostica mostra i clock/s (24 × BPM / 60) e i quasi-duplicati |
+| EXT passa a INT subito dopo il Play | Il thread principale occupato ad avviare le app | Corretto nella F1 (i controlli in ritardo vengono saltati) |
+| Le app suonano fuori tempo, con pause; badge **AUDIO** ambra | Thread audio sovraccarico (clock audio < 97%), ad esempio con l'FM-1 Emulator aperto | Chiudere i pannelli pesanti; scheduler MIDI in un Worker (prossimo passo) |
 
 ## 11. Struttura dei repository
 
