@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Integration Plan
 
-*Rev. 7 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; P1 done, including the Worker scheduler, see §4)*
+*Rev. 8 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `ef82703`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4)*
 *This plan lives outside the repository. Any external tools (bridge, Max for Live device, template) go in `D:\personal\apps\sycore-ableton\`. Italian version: `PIANO_INTEGRAZIONE_ABLETON.md`.*
 
 ---
@@ -205,6 +205,14 @@ A standard **SY.CORE Control Map** on `SYC CTRL`: no per-set MIDI Learn, Live's 
 - The map lives **only on the `SYC CTRL` port**, which is never forwarded to devices, so it never clashes with any channel in the rig. For example, the S-1's ch 16 on `SYC IN` is a different thing from control ch 16 on `SYC CTRL`. Channels 15 and 16 are still configurable.
 - The map is a preset in the MIDI Actions registry, editable, with documented defaults.
 - Slot changes are quantized to the bar (or to the end of the pattern), as in Live's Session View.
+
+#### 3.1 Status (2026-11-06) — first part done, branch `feat/rig-controller-ui`, commit `ef82703`
+- **Done:** on the clock source port (Clock › Source, e.g. `SYC CTRL B`), channel 16 by default (selectable): C1–G1 Chord Prog slot A–H (next bar, the queued slot pulses amber), C2–G2 Drum Machine sequence A–H (next bar), C3–G3 Sequencer bank A–H (end of pattern), C4 Drum Fill, F4 Generate (current style). Only note-ons act.
+- The port's messages never reach Global Thru or the devices; the map's notes reach no app as notes.
+- Control Map section in the transport sync panel: channel, on/off, the map table, the last action, and a warning when the port receives more than 6 notes/s outside the map (a monitored track echoing everything back). Copy diagnostics includes control and other notes.
+- Fixed with it: the first Play after reloading SY.CORE no longer drops to INT (300 ms grace after a page stall), and CLK SYS starts on Live's Start downbeat before the tempo is known.
+- **Tested** with Live 12: clips of single notes switch Drum Machine and Chord Prog on the bar.
+- **Still open:** D4 / E4 (Repeater, Mute Bass Line), G4 Generate AI, CC 20–40, ch 15 key follow, the map as an editable MIDI Actions preset.
 
 ### Phase 4 — Sending output back to Live (2 days)
 - In Flow every app can fan out: to the synth and, at the same time, to `SYC OUT` on a dedicated channel. In Live, a track listening to `SYC OUT ch N` records what the app played.
@@ -585,7 +593,8 @@ Each port shows up **both as an input and as an output** in every app: that is w
 | The apps start off the beat | Clock Type "Pattern" | Set it to "Song" |
 | The apps drift with the tab hidden | Browser timer throttling | Separate window (and scheduler in a Worker, P1) |
 | SY.CORE shows twice Live's BPM | The same clock arriving twice (a loop back into the source, or a doubled input) | Fixed in P1; the diagnostics line shows clocks/s (24 × BPM / 60) and near-duplicates |
-| EXT drops to INT right after Play | The main thread busy starting the apps | Fixed in P1 (late checks skipped) |
+| EXT drops to INT right after Play | The main thread busy starting the apps | Fixed in P1 (late checks skipped; 300 ms grace after a stall, for the first Play after a reload) |
+| Control Map: slots keep jumping, or stop on one; flood warning in the sync panel | The control track receives from All Ins with Monitor on, so every note on the port is echoed back on ch 16 | Control track: **MIDI From: No Input, Monitor Off** (§10.7) |
 | The apps play out of time, with pauses; amber **AUDIO** badge | The audio thread is overloaded (audio clock < 97%), e.g. FM-1 Emulator open | **CLK SYS** in the Drum Machine, Sequencer and Chord Prog; or close heavy panels |
 | A synth on a Windows MIDI Services loopback shows the notes but doesn't sound | Timestamped sends ignored on that port: note-on and note-off arrive together | **CLK SYS** in the app (Worker-timed sends) |
 
@@ -601,7 +610,7 @@ SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live
 
 | Port | Track | Sync | Remote |
 |---|---|---|---|
-| Output `SYC CTRL A` | off | **on** (Clock Type: Song) | off |
+| Output `SYC CTRL A` | **on** (only for the Control Map) | **on** (Clock Type: Song) | off |
 | Input `SYC OUT B` | **on** | off | off |
 
 **SY.CORE:**
@@ -612,9 +621,11 @@ SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live
 
 **Live tracks:** a MIDI track with the native instrument (Drum Rack, Analog, Wavetable…), **MIDI From `SYC OUT B`**, the part's channel, **Monitor In** (or Auto + arm); arm and record to capture the part. Drum Rack pads start at C1 (36) in GM order (kick 36, snare 38, closed hat 42): set the Drum Machine tracks' MIDI notes to match.
 
+**Control track (Control Map, P3):** a MIDI track with no instrument, **MIDI From: No Input**, **Monitor Off**, **MIDI To `SYC CTRL A`, ch 16**. Each clip holds one note of the map (e.g. C2 = Drum Machine sequence A, D1 = Chord Prog slot B); launching it switches the app on the next bar.
+
 **Latency:** the notes make the Live → SY.CORE → Live round trip and sound slightly after Live's metronome. Compensate with a negative **Track Delay** on those tracks (by ear, about −10 to −30 ms) or a negative **MIDI Clock Sync Delay** on `SYC CTRL A`; P4's loopback ping will measure it.
 
-**Tested:** Drum Machine → Drum Rack, Sequencer → Emulator X3 (standalone) and Live's Analog, Chord Prog → Emulator X3, all in sync, also with the FM-1 Emulator open.
+**Tested:** Drum Machine → Drum Rack, Sequencer → Emulator X3 (standalone) and Live's Analog, Chord Prog → Emulator X3, all in sync, also with the FM-1 Emulator open. Control track clips switching Drum Machine and Chord Prog slots on the bar.
 
 ## 11. Repository structure
 

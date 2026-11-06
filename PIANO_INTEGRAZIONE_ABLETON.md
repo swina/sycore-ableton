@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 7 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; F1 completata, scheduler nel Worker compreso, vedi §4)*
+*Rev. 8 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `ef82703`; F1 completata, scheduler nel Worker compreso; prima parte della F3 Control Map completata, vedi §4)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -205,6 +205,14 @@ Una **SY.CORE Control Map** standard su `SYC CTRL`: niente MIDI Learn per ogni s
 - La mappa vive **solo sulla porta `SYC CTRL`**, che non viene mai inoltrata ai dispositivi, quindi non entra in conflitto con nessun canale del rig. Per esempio, il ch 16 dell'S-1 su `SYC IN` è una cosa diversa dal ch 16 di controllo su `SYC CTRL`. I canali 15 e 16 sono comunque configurabili.
 - La mappa è un preset del registro MIDI Actions, modificabile ma con default documentati.
 - Cambi di slot quantizzati alla battuta (o a fine pattern), come nella Session View di Live.
+
+#### 3.1 Stato (2026-11-06) — prima parte completata, branch `feat/rig-controller-ui`, commit `ef82703`
+- **Fatto:** sulla porta sorgente del clock (Clock › Source, ad esempio `SYC CTRL B`), canale 16 di default (selezionabile): C1–G1 slot A–H del Chord Prog (alla battuta successiva, lo slot in coda lampeggia in ambra), C2–G2 sequenza A–H della Drum Machine (alla battuta successiva), C3–G3 banco A–H del Sequencer (a fine pattern), C4 Drum Fill, F4 Generate (stile corrente). Agiscono solo i Note ON.
+- I messaggi della porta non arrivano mai al Global Thru né ai dispositivi; le note della mappa non arrivano alle app come note.
+- Sezione Control Map nel pannello Sync del trasporto: canale, on/off, tabella della mappa, ultima azione e un avviso quando la porta riceve più di 6 note/s fuori dalla mappa (una traccia in monitor che rimanda indietro tutto). Copy diagnostics include le note di controllo e le altre.
+- Corretto insieme: il primo Play dopo il ricaricamento di SY.CORE non passa più a INT (300 ms di tolleranza dopo un blocco della pagina), e CLK SYS parte sul downbeat dello Start di Live prima di conoscerne il tempo.
+- **Provato** con Live 12: clip di una nota cambiano Drum Machine e Chord Prog alla battuta.
+- **Ancora da fare:** D4 / E4 (Repeater, Mute Bass Line), G4 Generate AI, CC 20–40, key follow sul ch 15, la mappa come preset modificabile delle MIDI Actions.
 
 ### Fase 4 — Rimandare l'output a Live (2 giorni)
 - In Flow ogni app può fare fanout: verso il synth e insieme verso `SYC OUT` su un canale dedicato. In Live una traccia in ascolto su `SYC OUT ch N` registra quello che l'app ha suonato.
@@ -585,7 +593,8 @@ Ogni porta compare **sia come ingresso sia come uscita** in tutte le app: per qu
 | Le app partono fuori battuta | Clock Type "Pattern" | Impostare "Song" |
 | Le app vanno fuori tempo con la tab nascosta | Rallentamento dei timer del browser | Finestra separata (e scheduler in un Worker, F1) |
 | SY.CORE mostra il doppio del BPM di Live | Lo stesso clock che arriva due volte (un loop verso la sorgente, o un ingresso doppio) | Corretto nella F1; la riga di diagnostica mostra i clock/s (24 × BPM / 60) e i quasi-duplicati |
-| EXT passa a INT subito dopo il Play | Il thread principale occupato ad avviare le app | Corretto nella F1 (i controlli in ritardo vengono saltati) |
+| EXT passa a INT subito dopo il Play | Il thread principale occupato ad avviare le app | Corretto nella F1 (i controlli in ritardo vengono saltati; 300 ms di tolleranza dopo un blocco, per il primo Play dopo il ricaricamento) |
+| Control Map: gli slot continuano a cambiare, o si fermano su uno; avviso di flood nel pannello Sync | La traccia di controllo riceve da All Ins con il Monitor attivo, quindi ogni nota della porta torna indietro sul ch 16 | Traccia di controllo: **MIDI From: No Input, Monitor Off** (§10.7) |
 | Le app suonano fuori tempo, con pause; badge **AUDIO** ambra | Thread audio sovraccarico (clock audio < 97%), ad esempio con l'FM-1 Emulator aperto | **CLK SYS** in Drum Machine, Sequencer e Chord Prog; oppure chiudere i pannelli pesanti |
 | Un synth su un loopback di Windows MIDI Services mostra le note ma non suona | Invii con timestamp ignorati su quella porta: Note ON e Note OFF arrivano insieme | **CLK SYS** nell'app (invii temporizzati dal Worker) |
 
@@ -601,7 +610,7 @@ SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live
 
 | Porta | Track | Sync | Remote |
 |---|---|---|---|
-| Output `SYC CTRL A` | off | **on** (Clock Type: Song) | off |
+| Output `SYC CTRL A` | **on** (solo per la Control Map) | **on** (Clock Type: Song) | off |
 | Input `SYC OUT B` | **on** | off | off |
 
 **SY.CORE:**
@@ -612,9 +621,11 @@ SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live
 
 **Tracce di Live:** una traccia MIDI con lo strumento nativo (Drum Rack, Analog, Wavetable…), **MIDI From `SYC OUT B`**, il canale della parte, **Monitor In** (o Auto + traccia armata); arma e registra per catturare la parte. I pad del Drum Rack partono da C1 (36) in ordine GM (kick 36, rullante 38, hi-hat chiuso 42): imposta di conseguenza le note MIDI delle tracce della Drum Machine.
 
+**Traccia di controllo (Control Map, F3):** una traccia MIDI senza strumento, **MIDI From: No Input**, **Monitor Off**, **MIDI To `SYC CTRL A`, ch 16**. Ogni clip contiene una nota della mappa (ad esempio C2 = sequenza A della Drum Machine, D1 = slot B del Chord Prog); lanciarla cambia l'app alla battuta successiva.
+
 **Latenza:** le note fanno il giro Live → SY.CORE → Live e suonano leggermente dopo il metronomo di Live. Si compensa con un **Track Delay** negativo su quelle tracce (a orecchio, circa da −10 a −30 ms) o con un **MIDI Clock Sync Delay** negativo su `SYC CTRL A`; il loopback ping della F4 lo misurerà.
 
-**Provato:** Drum Machine → Drum Rack, Sequencer → Emulator X3 (standalone) e Analog di Live, Chord Prog → Emulator X3, tutti in sync, anche con l'FM-1 Emulator aperto.
+**Provato:** Drum Machine → Drum Rack, Sequencer → Emulator X3 (standalone) e Analog di Live, Chord Prog → Emulator X3, tutti in sync, anche con l'FM-1 Emulator aperto. Clip della traccia di controllo che cambiano gli slot di Drum Machine e Chord Prog alla battuta.
 
 ## 11. Struttura dei repository
 
