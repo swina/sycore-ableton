@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Integration Plan
 
-*Rev. 8 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `ef82703`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4)*
+*Rev. 9 · 2026-11-06 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `fa827a0`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4; P9 steps 1–2 done, see §9.9)*
 *This plan lives outside the repository. Any external tools (bridge, Max for Live device, template) go in `D:\personal\apps\sycore-ableton\`. Italian version: `PIANO_INTEGRAZIONE_ABLETON.md`.*
 
 ---
@@ -393,11 +393,14 @@ SY.CORE doesn't bring Live something it lacks for its clips. It applies the same
 **Positioning:** "the rig's performance mode, kept in sync by Live". Public texts (paper, website, UI) use a name of its own, e.g. "Rig Performance Mode", and don't mention FL Studio, a trademark of Image-Line; at most "inspired by DAW performance modes".
 
 #### 9.9 Prototype status
-Branch `feat/rig-controller-ui` of `sycore-refactor`, commit `99c09f8` (pushed). The branch also holds P1 (commit `49c8dad`), which the Rig Controller will use in place of its simulated clock.
+Branch `feat/rig-controller-ui` of `sycore-refactor`, prototype commit `99c09f8`, steps 1–2 commit `fa827a0` (pushed).
 - **"Rig Controller" panel** (Performance Tools, Prototype badge), with three views: Rig layout, Launchpad Mini MK1, AKAI MIDImix.
-- **All §9.7 options** working, with a simulated clock standing in for Live.
-- **No MIDI sent.**
-- **Files:** `src/lib/rig-controller.ts` (model, Rig Actions, Launchpad map), `src/components/RigControllerPanel.vue`; tests in `tests/unit/lib/rig-controller.test.ts`.
+- **Step 0 — prototype:** all §9.7 options working in **SIM** mode, with a simulated clock.
+- **Step 1 — LIVE mode (done, tested):** the panel mirrors the real Drum Machine, Chord Prog and Sequencer (filled, playing and queued slots; EXT clock from Live or INT) and drives them with the Control Map commands (§4, P3): slot pads, sections across the apps, Fill and Generate (Drum Machine), Play/Stop (INT only), Panic. Bass and Arp rows stay simulated until those apps exist. The first pad of each row is labelled with its app (e.g. "Chord A").
+- **Step 2 — Launchpad Mini MK1 Rig mode (done, tested):** a "Launchpad Rig" switch hands the physical Launchpad to the Rig Controller. Its input is **exclusive** (before raw listeners, MIDI Learn, MIDI Actions, the profile and Thru), so the user's mappings are bypassed, not changed; the LEDs show the rig state (automatic flashing for queued slots) and the other feedback senders are muted meanwhile. Off: mappings and usual LEDs come back. The Launchpad must not be enabled in Live (§10.7).
+- **Also on this commit:** slot/bank switches cut the old notes at the switch time and stale note-offs no longer cut a newer note of the same pitch (Chord Prog, Sequencer); a 25 ms start window so a control note at 1.1.1 lands on the first bar.
+- **Next:** step 2b, the MIDImix profile with pickup; then the per-track options (§9.7) on the real apps.
+- **Files:** `src/lib/rig-controller.ts` (model, Rig Actions, Launchpad map), `src/lib/rig-live.ts` (snapshots of the real apps, commands), `src/lib/rig-launchpad.ts` (Launchpad LEDs and input), `src/components/RigControllerPanel.vue`; tests in `tests/unit/lib/rig-*.test.ts`.
 
 ### Phase 10 — Rig scenes and markers (after P9 · 8–10 days)
 Today a slot only stands for a pattern. This phase also ties **sounds, routing and controller values** to slots and sections, and lets Live, the Live Timeline or the controller recall them.
@@ -621,7 +624,9 @@ SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live
 
 **Live tracks:** a MIDI track with the native instrument (Drum Rack, Analog, Wavetable…), **MIDI From `SYC OUT B`**, the part's channel, **Monitor In** (or Auto + arm); arm and record to capture the part. Drum Rack pads start at C1 (36) in GM order (kick 36, snare 38, closed hat 42): set the Drum Machine tracks' MIDI notes to match.
 
-**Control track (Control Map, P3):** a MIDI track with no instrument, **MIDI From: No Input**, **Monitor Off**, **MIDI To `SYC CTRL A`, ch 16**. Each clip holds one note of the map (e.g. C2 = Drum Machine sequence A, D1 = Chord Prog slot B); launching it switches the app on the next bar.
+**Control track (Control Map, P3):** a MIDI track with no instrument, **MIDI From: No Input**, **Monitor Off**, **MIDI To `SYC CTRL A`, ch 16**. Each clip holds one note of the map (e.g. C2 = Drum Machine sequence A, D1 = Chord Prog slot B); launching it switches the app on the next bar. Set the control clips to **Launch Quantization None** and **Loop off**: with a quantized launch the note arrives just after the bar line, too late for the app (it commits about 100 ms ahead), and the switch lands one bar later.
+
+**Launchpad (Rig mode, P9):** leave it to SY.CORE. In Live set its **Control Surface to None** (Input and Output) and **Track/Remote off** for its ports; otherwise Live's Launchpad script also reads the pads and launches or records clips (red pad).
 
 **Latency:** the notes make the Live → SY.CORE → Live round trip and sound slightly after Live's metronome. Compensate with a negative **Track Delay** on those tracks (by ear, about −10 to −30 ms) or a negative **MIDI Clock Sync Delay** on `SYC CTRL A`; P4's loopback ping will measure it.
 
