@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 6 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; F1 completata, scheduler nel Worker compreso, vedi §4)*
+*Rev. 7 · 2026-11-06 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, merge `8cf2a2d`; F1 completata, scheduler nel Worker compreso, vedi §4)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -588,6 +588,33 @@ Ogni porta compare **sia come ingresso sia come uscita** in tutte le app: per qu
 | EXT passa a INT subito dopo il Play | Il thread principale occupato ad avviare le app | Corretto nella F1 (i controlli in ritardo vengono saltati) |
 | Le app suonano fuori tempo, con pause; badge **AUDIO** ambra | Thread audio sovraccarico (clock audio < 97%), ad esempio con l'FM-1 Emulator aperto | **CLK SYS** in Drum Machine, Sequencer e Chord Prog; oppure chiudere i pannelli pesanti |
 | Un synth su un loopback di Windows MIDI Services mostra le note ma non suona | Invii con timestamp ignorati su quella porta: Note ON e Note OFF arrivano insieme | **CLK SYS** nell'app (invii temporizzati dal Worker) |
+
+### 10.7 Configurazione provata: Windows MIDI Services (2026-11-06)
+Il rig provato con Live 12, SY.CORE in Chrome e Windows MIDI Services, senza loopMIDI. Un loopback di Windows MIDI Services è una **coppia di endpoint**: quello che esce da A entra su B.
+
+```
+Live    ──► SYC CTRL A ══ loopback ══► SYC CTRL B ──► SY.CORE   (clock, Start/Stop, SPP)
+SY.CORE ──► SYC OUT A  ══ loopback ══► SYC OUT B  ──► Live      (note delle app → strumenti nativi)
+```
+
+**Live → Preferenze › Link, Tempo & MIDI** (attiva solo queste; nelle nostre prove disattivare le porte di Windows MIDI Services ha mandato in crash Live 12):
+
+| Porta | Track | Sync | Remote |
+|---|---|---|---|
+| Output `SYC CTRL A` | off | **on** (Clock Type: Song) | off |
+| Input `SYC OUT B` | **on** | off | off |
+
+**SY.CORE:**
+- Pannello Sync del trasporto: **Clock › Source = `SYC CTRL B`**; alla perdita del clock come preferisci.
+- Uno **strumento virtuale per parte sulla porta `SYC OUT A`** (ad esempio `Live · Drums`, `Live · Chords`, `Live · Seq`), collegato in MIDI Flow dalla sua app, con il canale impostato come **OUT CH sul cavo** (Drums 10, Chords 1, Seq 2…). La Drum Machine richiede **MIDI OUT ONLY** (esce solo verso strumenti virtuali).
+- **CLK SYS** in Drum Machine, Sequencer e Chord Prog.
+- Non collegare `SYC OUT B` né `SYC CTRL A` in MIDI Flow.
+
+**Tracce di Live:** una traccia MIDI con lo strumento nativo (Drum Rack, Analog, Wavetable…), **MIDI From `SYC OUT B`**, il canale della parte, **Monitor In** (o Auto + traccia armata); arma e registra per catturare la parte. I pad del Drum Rack partono da C1 (36) in ordine GM (kick 36, rullante 38, hi-hat chiuso 42): imposta di conseguenza le note MIDI delle tracce della Drum Machine.
+
+**Latenza:** le note fanno il giro Live → SY.CORE → Live e suonano leggermente dopo il metronomo di Live. Si compensa con un **Track Delay** negativo su quelle tracce (a orecchio, circa da −10 a −30 ms) o con un **MIDI Clock Sync Delay** negativo su `SYC CTRL A`; il loopback ping della F4 lo misurerà.
+
+**Provato:** Drum Machine → Drum Rack, Sequencer → Emulator X3 (standalone) e Analog di Live, Chord Prog → Emulator X3, tutti in sync, anche con l'FM-1 Emulator aperto.
 
 ## 11. Struttura dei repository
 
