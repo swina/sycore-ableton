@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Integration Plan
 
-*Rev. 10 · 2026-11-07 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `64a45c3`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4; P9 steps 1–2b and the first per-track options done, see §9.9)*
+*Rev. 11 · 2026-11-08 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4; P9 steps 1–2b and the first per-track options done, see §9.9; P11 "SY.CORE Link" M4L bridge planned, spike next)*
 *This plan lives outside the repository. Any external tools (bridge, Max for Live device, template) go in `D:\personal\apps\sycore-ableton\`. Italian version: `PIANO_INTEGRAZIONE_ABLETON.md`.*
 
 ---
@@ -236,7 +236,7 @@ A standard **SY.CORE Control Map** on `SYC CTRL`: no per-set MIDI Learn, Live's 
 - A `docs/guides/SYCORE_ABLETON_LIVE.md` guide in the repo, based on §10.
 
 ### Phase 7 — Optional extensions (after the MVP)
-- **"SY.CORE Link" Max for Live device** (needs Suite, or Standard with the separately purchased Max for Live add-on; the base rig does not need it): reads the set's key and scale, scene names and launched clips from the Live Object Model, and writes clips straight into Live's slots ("Send to Live" without drag & drop).
+- **"SY.CORE Link" Max for Live device** (needs Suite, or Standard with the separately purchased Max for Live add-on; the base rig does not need it): reads the set's key and scale, scene names and launched clips from the Live Object Model, and writes clips straight into Live's slots ("Send to Live" without drag & drop). **Now its own phase, with a wider scope: see P11.**
 - **Ableton Link bridge (Node):** tempo and phase via Link instead of MIDI clock, useful with several computers. Secondary, because in this scenario Live is already the master via MIDI.
 - **Push control script**, to drive the Control Map from the pads.
 
@@ -461,6 +461,39 @@ SY.CORE's Live Timeline already has many marker types (Program Change, Select Ch
 
 **Tests:** applying a scene (slots, sounds, Flow, split, mutes, CCs), closing notes on routing changes, message order and early send, chase from SPP and from seek, no double send when the same scene arrives twice.
 
+### Phase 11 — "SY.CORE Link": Max for Live bridge and gateway (after P9 · spike 1–2 days, MVP 6–8 days)
+A Max for Live device family that connects Live and SY.CORE **without virtual MIDI ports**, and that is also the way Live users discover SY.CORE. It takes over and widens P7's "SY.CORE Link" item.
+
+#### 11.1 Why
+- **The hardest part of the setup goes away:** today a Live user needs loopbacks (Windows MIDI Services or loopMIDI), A/B ports, Sync and Remote in Live's preferences (§10). With the device: drop it on a track, open SY.CORE, connected.
+- **A gateway with an audience already there:** the author's M4L devices (a Latch & Play FIFO, a sequencer for Expressive Chords) are still downloaded. An update with **"Connect to SY.CORE"** reaches those users. Each device stays useful on its own; connected, it does much more — that is what brings people to SY.CORE.
+- **Better than MIDI where it counts:** tempo, transport and beat position read from the Live API instead of rebuilt from MIDI clock; notes placed on Live's beats by Max's scheduler; mixer and scenes without MIDI mapping.
+
+#### 11.2 Architecture
+- **Transport:** `node.script` (Node for Max) runs a **WebSocket server on `localhost`**; SY.CORE (browser) connects to it as a client. Versioned JSON protocol (`"v": 1`, §11.4), documented in `docs/`.
+- **One device per track — "SY.CORE · Track":** each instance announces itself (track name, id) and receives the notes of one SY.CORE app or MIDI Flow cable, then outputs them as MIDI into the track's instrument. Routing becomes visible inside Live; no "MIDI From" ports to set.
+- **Beat-time scheduling:** SY.CORE sends notes ahead (lookahead, as CLK SYS) with their **position in beats**; the device emits them in Max's transport-synced scheduler. The browser's jitter and main-thread stalls no longer reach the note times, as long as notes arrive before their beat.
+- **One "SY.CORE · Link" master device** (or the first Track instance) observes the Live Object Model: tempo, `is_playing`, `current_song_time`, time signature, track and scene names, locators (P10 path C), launched clips.
+- **Live API control from SY.CORE:** track volume, mute, sends, clip and scene launch — the SY.CORE mixer and the Rig Controller drive Live directly, without Ctrl+M mappings; it replaces the ch 16 Control Map trick for those who have M4L.
+- **The MIDI path stays:** P1–P3 over loopbacks remain the base rig (Live Standard, hardware only, no M4L). SY.CORE detects the bridge and prefers it when present.
+
+#### 11.3 Steps and estimates
+1. **Spike (1–2 days):** `node.script` WebSocket server + a SY.CORE test page connecting from the production build (https) to `ws://localhost`. Measure: connection in Chrome/Edge (Local Network Access prompt?), round-trip latency, note jitter with beat-time scheduling vs. the `SYC OUT` loopback, behaviour with the window in the background.
+2. **Protocol v1 + SY.CORE client (2 days):** hello/version, transport, tempo, track list, note events with beat time, reconnect; a "Live (M4L)" source in Clock and a "Live track" destination in MIDI Flow.
+3. **"SY.CORE · Track" device (2 days):** note output with beat scheduling, panic / note-off on disconnect, minimal UI (status, app/cable picked, "Open SY.CORE").
+4. **Live API control (2 days):** volume/mute/sends from the Audio Mixer, scene and clip launch from the Rig Controller and the Control Map.
+5. **Gateway (1–2 days):** "Connect to SY.CORE" in the existing Latch & Play and Expressive Chords devices; packaging and listing (maxforlive.com), short guide.
+
+**Tests:** protocol round trip (unit, both sides), reconnect without hanging notes, note timing measured against the loopback path, two instances on two tracks, Live stopped / playing / looping.
+
+#### 11.4 Risks specific to P11
+| Risk | Mitigation |
+|---|---|
+| Browser blocks or prompts for `ws://localhost` from an https page (Chrome's **Local Network Access**, Safari) | First thing tested in the spike; fallbacks: a prompt explained in the UI, SY.CORE served from `localhost` by the bridge, or the P8 desktop shell |
+| Requirements: Suite, or Standard + the Max for Live add-on; Node for Max from Live 10 | The MIDI rig (P1–P3) stays the base; P11 is an upgrade path |
+| A second product to maintain | Versioned protocol (`"v"`), the device kept thin (transport and scheduling only), logic in SY.CORE |
+| Notes arriving late over WebSocket (page stalled) | Lookahead as CLK SYS; late notes handled like `chaseNote` (long ones sound for what is left, short ones dropped) |
+
 ## 5. Order and estimates
 
 | # | Phase | Effort | Depends on |
@@ -475,6 +508,7 @@ SY.CORE's Live Timeline already has many marker types (Program Change, Select Ch
 | 8 | P8 "Pro rig" desktop shell | M–L | MVP, Live edition (§11) |
 | 9 | P9 Rig Controller: Launchpad Mini MK1 + MIDImix profiles, per-track performance options, then OSC | M | P3 (quantized actions); P7 for OSC |
 | 10 | P10 Rig scenes and markers (Live, Live Timeline, chase) | M–L | P1 (SPP), P2 (PC rules), P3 (Control Map), P9 |
+| 11 | P11 "SY.CORE Link" M4L bridge and gateway (WebSocket, beat-time notes, Live API) | M | spike first; P1–P3 (the MIDI path it upgrades); widens P7's M4L item |
 
 **MVP:** P1 + P2 + P3 + P4 + P6, about 3.5 weeks. **Full version:** with P5, about 4.5 weeks.
 
@@ -519,7 +553,7 @@ SY.CORE's Live Timeline already has many marker types (Program Change, Select Ch
 
 ## 9. Decisions
 
-1. **Live 12.x, Standard or Suite.** The base rig does not use Max for Live; M4L is needed only for the P7 extensions.
+1. **Live 12.x, Standard or Suite.** The base rig does not use Max for Live; M4L is needed only for the P7 extensions and the P11 bridge.
 2. **16 parts max:** a single `SYC IN` port with 16 channels.
 3. **Control Map on channels 15 and 16 of `SYC CTRL`**, a port never forwarded to devices. The Roland S-1 (PC on ch 16) uses the `sound-engine` rule: presets are CC configurations applied to the current or temp preset.
 4. **The `.als` template will be built together** (P6).
@@ -661,7 +695,7 @@ sycore-ableton/
 ├─ ABLETON_INTEGRATION_PLAN.md     (English)
 ├─ paper/           "SY.CORE Live" paper for musicians and audio engineers (IT, EN), images in assets/
 ├─ template/        SYCORE Template.als (Live 12, Standard-compatible) and Ableton Project
-├─ m4l/             "SY.CORE Link" device (P7)
+├─ m4l/             "SY.CORE Link" devices (P11): Link, Track, gateway updates of existing devices
 ├─ bridge/          Node bridge for Ableton Link (P7)
 ├─ docs/            user guides, printable Control Map, MIDI Agent comparison
 └─ tools/           test scripts (command-line loopback ping, port monitor)
