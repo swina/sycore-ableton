@@ -1,0 +1,14 @@
+{
+  "name": "sycore-link-spike",
+  "version": "0.0.1",
+  "private": true,
+  "description": "P11 spike: WebSocket bridge between SY.CORE (browser) and a Max for Live device (Node for Max)",
+  "main": "sycore-link-spike.js",
+  "scripts": {
+    "sim": "node sycore-link-spike.js --sim",
+    "bench": "node bench.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
