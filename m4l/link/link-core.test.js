@@ -102,3 +102,13 @@ test('stats report the transport jitter', () => {
   s.schedule({ data: [0xb0, 7, 1] }, 500);
   assert.equal(s.takeStats().reportJitterMs, 30);
 });
+
+test('device status lines', () => {
+  const { infoText, statsText } = require('./link-core');
+  assert.equal(infoText({ clients: 0, port: 9400 }), 'waiting for SY.CORE · port 9400');
+  assert.equal(infoText({ clients: 1, port: 9400, track: 'Drums' }), 'SY.CORE connected · track Drums');
+  assert.equal(infoText({ clients: 2, port: 9400, error: 'port 9400 in use' }), 'port 9400 in use');
+  assert.equal(statsText(null), 'idle');
+  assert.equal(statsText({ msgs: 16, late: 0, dropped: 1, leadMinMs: 73.4 }), '16 msgs/s · 0 late · 1 dropped · lead 73 ms');
+  assert.equal(statsText({ msgs: 2, late: 0, dropped: 0, leadMinMs: null }), '2 msgs/s · 0 late · 0 dropped');
+});

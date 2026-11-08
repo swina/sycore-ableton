@@ -8,11 +8,11 @@
  *   node → Max : "midi3 <b1> <b2> <b3> <beat>"  (beat -1 = now) → delay from [transport] → [pipe] → [midiout]
  *                "midi2 <b1> <b2> <beat>"
  *                "clear"                            → both pipes (drop pending messages)
- *                "status <clients>"                 → UI
+ *                "info <text…>" / "stats <text…>"  → the device's status lines
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage } = require('./link-core');
+const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, statsText } = require('./link-core');
 
 const VERSION = '1.0.0';
 const SIM = process.argv.includes('--sim');
@@ -28,6 +28,13 @@ const tr = new Transport();
 const sched = new MidiScheduler(tr);
 let trackName = '';
 let rejectLogs = 0;
+let serverError = null;
+let lastStats = '';
+
+/** Status lines on the device (words as separate atoms: Max shows them without quotes). */
+const words = t => String(t).split(' ');
+function showInfo() { toMax('info', ...words(infoText({ clients: wss.clients.size, port: PORT, error: serverError, track: trackName }))); }
+function showStats(s) { const t = statsText(s); if (t !== lastStats) { lastStats = t; toMax('stats', ...words(t)); } }
 
 /** To Max with the Live beat to play it on (-1 = now): Max reads its own [transport] when
  *  the message arrives and waits the rest — the note lands on Live's beat whatever the
@@ -68,7 +75,7 @@ function onTransport(playing, beat, tempo, num, den) {
 }
 if (max) {
   max.addHandler('transport', safe('transport', onTransport));
-  max.addHandler('track', safe('track', (...name) => { trackName = name.join(' '); }));
+  max.addHandler('track', safe('track', (...name) => { trackName = name.join(' '); showInfo(); }));
 } else {
   // Simulated Live: 120 BPM from beat 0, reports at Live's UI rate.
   tr.set({ playing: 1, beat: 0, tempo: 120, num: 4, den: 4 }, now());
@@ -78,11 +85,11 @@ if (max) {
 // ── WebSocket (connection handling) ─────────────────────────────────────────
 
 setInterval(() => broadcast(tr.snapshot(now())), 50);
-setInterval(() => { const s = sched.takeStats(); if (s) broadcast(s); }, 1000);
+setInterval(() => { const s = sched.takeStats(); if (s) broadcast(s); showStats(s); }, 1000);
 
 wss.on('connection', (ws, req) => {
   log('client connected from', req.headers.origin || '?');
-  toMax('status', wss.clients.size);
+  showInfo();
   send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max });
   send(ws, tr.snapshot(now()));
   ws.on('message', safe('message', text => {
@@ -104,12 +111,15 @@ wss.on('connection', (ws, req) => {
     }
   }));
   ws.on('close', () => {
-    toMax('status', wss.clients.size);
+    showInfo();
     log('client gone');
     // No client left to send note-offs: end what sounds.
     if (wss.clients.size === 0) clearAll();
   });
 });
 
-server.listen(PORT, '127.0.0.1', () => log(`SY.CORE Link ${VERSION} on ws://127.0.0.1:${PORT} (${max ? 'Max' : 'simulated Live'})`));
-server.on('error', e => log('server error:', e.code === 'EADDRINUSE' ? `port ${PORT} in use (another SY.CORE Link device?)` : e.message));
+server.listen(PORT, '127.0.0.1', () => { log(`SY.CORE Link ${VERSION} on ws://127.0.0.1:${PORT} (${max ? 'Max' : 'simulated Live'})`); showInfo(); });
+server.on('error', e => {
+  serverError = e.code === 'EADDRINUSE' ? `port ${PORT} in use: another SY.CORE Link device?` : `server error: ${e.message}`;
+  log(serverError); showInfo();
+});

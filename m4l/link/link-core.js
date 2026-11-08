@@ -171,6 +171,21 @@ class MidiScheduler {
   }
 }
 
+/** Device status line: clients connected, or what it waits for. */
+function infoText({ clients = 0, port, error = null, track = '' }) {
+  if (error) return error;
+  const where = track ? ` · track ${track}` : '';
+  if (!clients) return `waiting for SY.CORE · port ${port}`;
+  return `${clients === 1 ? 'SY.CORE connected' : `${clients} SY.CORE clients`}${where}`;
+}
+
+/** Device stats line from a `stats` message (null: nothing arrived in the last second). */
+function statsText(s) {
+  if (!s) return 'idle';
+  const lead = s.leadMinMs === null ? '' : ` · lead ${Math.round(s.leadMinMs)} ms`;
+  return `${s.msgs} msgs/s · ${s.late} late · ${s.dropped} dropped${lead}`;
+}
+
 /** Parse one incoming text frame: { msg } or { error } (to send back), or {} to ignore. */
 function parseMessage(text) {
   let m;
@@ -182,4 +197,4 @@ function parseMessage(text) {
   return { msg: m };
 }
 
-module.exports = { PROTOCOL_VERSION, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { PROTOCOL_VERSION, infoText, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
