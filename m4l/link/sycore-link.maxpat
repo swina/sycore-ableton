@@ -340,7 +340,7 @@
         "box": {
           "id": "obj-node",
           "maxclass": "newobj",
-          "text": "node.script sycore-link.js @autostart 1",
+          "text": "node.script C:/Users/swina/Documents/sycore-link/sycore-link.js @autostart 1",
           "numinlets": 1,
           "numoutlets": 2,
           "outlettype": [
@@ -350,7 +350,7 @@
           "patching_rect": [
             30,
             260,
-            289,
+            548,
             22
           ]
         }

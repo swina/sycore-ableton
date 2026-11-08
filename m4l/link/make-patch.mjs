@@ -19,7 +19,8 @@ const B = [
   ['tpre', 'prepend track', 1, 1, 600, 220],
   ['start', 'script start', 2, 1, 250, 220, 'message'],
   ['inst', 'script npm install', 2, 1, 350, 220, 'message'],
-  ['node', 'node.script sycore-link.js @autostart 1', 1, 2, 30, 260],
+  // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
+  ['node', `node.script ${(process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link')}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
   ['route', 'route midi3 midi2 clear status', 1, 5, 30, 300],
   ['pipe3', 'pipe 0 0 0 0', 4, 3, 30, 340],
   ['pk3', 'pack 0 0 0', 3, 1, 30, 370],
