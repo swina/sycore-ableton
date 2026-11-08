@@ -28,4 +28,4 @@ In SY.CORE ogni app va su **Live (M4L)** in MIDI Flow con il suo canale (OUT CH 
 | Chord Prog | 1 | Receive ch 1 → strumento |
 | Sequencer | 2 | Receive ch 2 → strumento |
 
-Il canale si salva col set (parametro di Live). Per registrare basta armare la traccia (Monitor In o Auto): le note escono dal device prima dello strumento, quindi per catturarle in una clip registra su un'altra traccia con **MIDI From** = questa traccia e **Pre FX** (verificato in Live: con Post FX non arriva).
+Il canale si salva col set (parametro di Live). Per registrare basta armare la traccia (Monitor In o Auto): le note escono dal device prima dello strumento, quindi per catturarle in una clip registra su un'altra traccia con **MIDI From** = questa traccia e **Pre FX** (verificato in Live: con Post FX, per esempio, il CC#111 che seleziona l'accordo 1 arriva anche come nota al Drum Rack).
