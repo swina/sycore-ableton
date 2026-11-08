@@ -13,3 +13,6 @@ Bridge between SY.CORE (browser) and Live, without virtual MIDI ports. Protocol:
 Come lo spike (`../spike/README.md`), con questa cartella e questi nomi: Max MIDI Effect → Edit → cancella `midiin`/`midiout` di default → apri `sycore-link.maxpat`, Ctrl+A, Ctrl+C, chiudi **senza salvare** → Ctrl+V nel device → Save As `sycore-link.amxd` **in questa cartella**. Console Max: `SY.CORE Link 1.0.0 on ws://127.0.0.1:9400 (Max)`.
 
 Lo spike e questo device usano la stessa porta: tienine attivo uno solo.
+
+## Device pronto
+`node make-patch.mjs && node make-amxd.mjs` → `sycore-link.amxd`: un Max MIDI Effect già fatto, da trascinare su una traccia MIDI di Live (niente editor). Lo script va tenuto in `C:/Users/swina/Documents/sycore-link/` (percorso completo nella patch).

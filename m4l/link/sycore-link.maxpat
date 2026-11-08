@@ -491,6 +491,24 @@
       },
       {
         "box": {
+          "id": "obj-iter",
+          "maxclass": "newobj",
+          "text": "iter",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            30,
+            400,
+            60,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
           "id": "obj-out",
           "maxclass": "newobj",
           "text": "midiout",
@@ -499,7 +517,7 @@
           "outlettype": [],
           "patching_rect": [
             30,
-            420,
+            430,
             65,
             22
           ]
@@ -890,7 +908,7 @@
             0
           ],
           "destination": [
-            "obj-out",
+            "obj-iter",
             0
           ]
         }
@@ -935,6 +953,18 @@
         "patchline": {
           "source": [
             "obj-pk2",
+            0
+          ],
+          "destination": [
+            "obj-iter",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-iter",
             0
           ],
           "destination": [
