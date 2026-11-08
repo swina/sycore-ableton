@@ -81,3 +81,25 @@ test('parseMessage: JSON, type, version', () => {
   assert.equal(parseMessage('{"v":2,"type":"ping"}').error.code, 'version');
   assert.equal(parseMessage('{"v":1}').error.code, 'bad-message');
 });
+
+test('late position reports do not move the estimate back; an early one moves it forward', () => {
+  const tr = playingAt120();
+  tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500);   // 20 ms late
+  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.05)) < 1e-9);
+  tr.set({ playing: 1, beat: 2.02, tempo: 120 }, 1000);      // ahead: taken
+  assert.equal(tr.beatAt(1000), 2.02);
+});
+
+test('a jump in position is taken at once', () => {
+  const tr = playingAt120();
+  tr.set({ playing: 1, beat: 0, tempo: 120 }, 2000); // loop back from beat 4
+  assert.equal(tr.beatAt(2000), 0);
+});
+
+test('stats report the transport jitter', () => {
+  const tr = playingAt120();
+  const s = new MidiScheduler(tr);
+  tr.set({ playing: 1, beat: 1 - 0.06, tempo: 120 }, 500); // 30 ms late
+  s.schedule({ data: [0xb0, 7, 1] }, 500);
+  assert.equal(s.takeStats().reportJitterMs, 30);
+});

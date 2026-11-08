@@ -6,19 +6,50 @@
 const PROTOCOL_VERSION = 1;
 const LATE_TOLERANCE_MS = 5;
 
-class Transport {
-  constructor() { this.playing = false; this.beat = 0; this.tempo = 120; this.num = 4; this.den = 4; this.at = 0; }
+/** A position this far off the estimate is a jump (loop, relocation), not delivery jitter (beats). */
+const JUMP_BEATS = 0.25;
+/** Share of a late report's error taken into the estimate: follows a slow drift between
+ *  Live's audio clock and ours without taking in each report's delivery delay. */
+const DRIFT_GAIN = 0.05;
 
-  /** A report from Live. Returns true when playing, tempo or signature changed. */
+class Transport {
+  constructor() { this.playing = false; this.beat = 0; this.tempo = 120; this.num = 4; this.den = 4; this.at = 0; this.resetJitter(); }
+
+  resetJitter() { this.jitter = { maxLateMs: 0, n: 0 }; }
+
+  /**
+   * A report from Live. Returns true when playing, tempo or signature changed.
+   *
+   * Live reports the position from its UI thread: each report reaches us some ms after
+   * it was true, a different amount every time — never early. Taking each one as exact
+   * put that jitter into every note time. So while playing at a steady tempo the estimate
+   * moves to a report that is ahead of it (less delayed) and only drifts slowly toward one
+   * that is behind it (more delayed); a big difference is a jump and is taken at once.
+   */
   set({ playing, beat, tempo, num, den }, now) {
     const p = !!playing;
     const t = Number(tempo) > 0 ? Number(tempo) : this.tempo;
     const n = Number(num) > 0 ? Number(num) | 0 : this.num;
     const d = Number(den) > 0 ? Number(den) | 0 : this.den;
     const changed = p !== this.playing || t !== this.tempo || n !== this.num || d !== this.den;
+    const steady = p && this.playing && t === this.tempo;
+    const hasBeat = beat !== undefined && Number.isFinite(Number(beat));
+    const predicted = this.beatAt(now);
     this.playing = p; this.tempo = t; this.num = n; this.den = d;
-    if (beat !== undefined && Number.isFinite(Number(beat))) this.beat = Number(beat);
-    else this.beat = this.beatAt(now);
+    if (!hasBeat) {
+      this.beat = predicted;
+    } else if (!steady) {
+      this.beat = Number(beat);
+    } else {
+      const err = Number(beat) - predicted;
+      if (Math.abs(err) > JUMP_BEATS || err > 0) this.beat = Number(beat);
+      else {
+        this.beat = predicted + err * DRIFT_GAIN;
+        this.jitter.n++;
+        const lateMs = (-err * 60000) / t;
+        if (lateMs > this.jitter.maxLateMs) this.jitter.maxLateMs = lateMs;
+      }
+    }
     this.at = now;
     return changed;
   }
@@ -129,8 +160,11 @@ class MidiScheduler {
     const s = this.st;
     if (!s.msgs && !s.late && !s.dropped) return null;
     this.resetStats();
+    const j = this.tr.jitter; this.tr.resetJitter();
     return {
       type: 'stats', msgs: s.msgs, late: s.late, dropped: s.dropped,
+      // How much later than the estimate Live's position reports arrived (ms, max over the period).
+      reportJitterMs: j.n ? Math.round(j.maxLateMs * 10) / 10 : null,
       leadMinMs: s.leadN ? Math.round(s.leadMin * 10) / 10 : null,
       leadAvgMs: s.leadN ? Math.round((s.leadSum / s.leadN) * 10) / 10 : null,
     };
