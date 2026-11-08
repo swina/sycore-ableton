@@ -27,6 +27,7 @@ const now = () => performance.now();
 const tr = new Transport();
 const sched = new MidiScheduler(tr);
 let trackName = '';
+let rejectLogs = 0;
 
 function sendMidi(data, delayMs) {
   const d = Math.round(delayMs * 100) / 100;
@@ -88,6 +89,8 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'midi': {
         const r = sched.schedule(msg, now());
+        // Diagnostics: the first few refused messages, as received.
+        if (!r && rejectLogs < 5) { rejectLogs++; log('refused midi:', JSON.stringify(msg).slice(0, 160), `playing=${tr.playing} beatNow=${tr.beatAt(now()).toFixed(3)}`); }
         if (r) sendMidi(r.data, r.delayMs);
         break;
       }
