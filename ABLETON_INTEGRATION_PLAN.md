@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Integration Plan
 
-*Rev. 11 · 2026-11-08 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4; P9 steps 1–2b and the first per-track options done, see §9.9; P11 "SY.CORE Link" M4L bridge planned, spike next)*
+*Rev. 12 · 2026-11-08 · Reference repository: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; P1 done, including the Worker scheduler; P3 Control Map first part done, see §4; P9 steps 1–2b and the first per-track options done, see §9.9; P11 "SY.CORE Link" spike: local test passed, https test next, see §11.5)*
 *This plan lives outside the repository. Any external tools (bridge, Max for Live device, template) go in `D:\personal\apps\sycore-ableton\`. Italian version: `PIANO_INTEGRAZIONE_ABLETON.md`.*
 
 ---
@@ -485,6 +485,15 @@ A Max for Live device family that connects Live and SY.CORE **without virtual MI
 5. **Gateway (1–2 days):** "Connect to SY.CORE" in the existing Latch & Play and Expressive Chords devices; packaging and listing (maxforlive.com), short guide.
 
 **Tests:** protocol round trip (unit, both sides), reconnect without hanging notes, note timing measured against the loopback path, two instances on two tracks, Live stopped / playing / looping.
+
+#### 11.5 Spike status (2026-11-08) — local test passed
+Device built from the ready-made patch `m4l/spike/sycore-link-spike.maxpat` (Max MIDI Effect, saved as `.amxd` next to the script); Live 12, Windows, Chrome, 75 BPM.
+- **Connection** from `http://localhost:9400`: open in 6–7 ms, transport (play, beat, tempo) read from the Live API.
+- **RTT:** avg 0.85 ms, p99 2–5 ms, max 5.5 ms (200 pings).
+- **Notes (1/16, 8 bars, lookahead 100 ms):** all on time in every run, also with SY.CORE playing in parallel; lead min 73 ms, avg ~92 ms (worst delivery ~27 ms).
+- **Recorded clip** (second track, MIDI From = spike track, Post FX): notes on the 1/16 grid, none missing or doubled; same with **Chrome minimized** (Worker timer not throttled).
+- **Lessons:** Live records a track's input, before MIDI effects — record the device output on a second track (Post FX). Max may save over an opened `.maxpat`: close it without saving. Two Note tests at once double the stream (one tab, one click).
+- **Next:** the https test (`/link-spike.html` on the Vercel deploy → `ws://127.0.0.1:9400`, Chrome Local Network Access), then protocol v1 (step 2).
 
 #### 11.4 Risks specific to P11
 | Risk | Mitigation |
