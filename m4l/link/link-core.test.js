@@ -24,6 +24,7 @@ test('a note ahead of its beat is delayed by the lead', () => {
   const r = s.schedule({ data: [0x90, 60, 100], beat: 1 }, 400); // beat 1 = 500 ms
   assert.deepEqual(r.data, [0x90, 60, 100]);
   assert.ok(Math.abs(r.delayMs - 100) < 1e-6);
+  assert.equal(r.beat, 1); // Max places it on beat 1
   const st = s.takeStats();
   assert.equal(st.msgs, 1); assert.equal(st.leadMinMs, 100);
 });
@@ -31,7 +32,7 @@ test('a note ahead of its beat is delayed by the lead', () => {
 test('a late note-on is dropped, a late note-off goes out at once', () => {
   const s = new MidiScheduler(playingAt120());
   assert.equal(s.schedule({ data: [0x90, 60, 100], beat: 1 }, 600), null);
-  assert.deepEqual(s.schedule({ data: [0x80, 60, 0], beat: 1 }, 600), { data: [0x80, 60, 0], delayMs: 0 });
+  assert.deepEqual(s.schedule({ data: [0x80, 60, 0], beat: 1 }, 600), { data: [0x80, 60, 0], delayMs: 0, beat: null });
   const st = s.takeStats();
   assert.equal(st.late, 2); assert.equal(st.dropped, 1);
 });
@@ -44,7 +45,7 @@ test('within 5 ms late still plays (no drop)', () => {
 test('no beat = now; stopped transport drops note-ons, passes note-offs and CCs', () => {
   const tr = new Transport();
   const s = new MidiScheduler(tr);
-  assert.deepEqual(s.schedule({ data: [0xb0, 7, 100] }, 0), { data: [0xb0, 7, 100], delayMs: 0 });
+  assert.deepEqual(s.schedule({ data: [0xb0, 7, 100] }, 0), { data: [0xb0, 7, 100], delayMs: 0, beat: null });
   assert.equal(s.schedule({ data: [0x90, 60, 100], beat: 4 }, 0), null);
   assert.ok(s.schedule({ data: [0x80, 60, 0], beat: 4 }, 0));
 });
@@ -82,12 +83,10 @@ test('parseMessage: JSON, type, version', () => {
   assert.equal(parseMessage('{"v":1}').error.code, 'bad-message');
 });
 
-test('late position reports do not move the estimate back; an early one moves it forward', () => {
+test('position reports are smoothed: a report 20 ms off moves the estimate by a fifth', () => {
   const tr = playingAt120();
-  tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500);   // 20 ms late
-  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.05)) < 1e-9);
-  tr.set({ playing: 1, beat: 2.02, tempo: 120 }, 1000);      // ahead: taken
-  assert.equal(tr.beatAt(1000), 2.02);
+  tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500);
+  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.2)) < 1e-9);
 });
 
 test('a jump in position is taken at once', () => {

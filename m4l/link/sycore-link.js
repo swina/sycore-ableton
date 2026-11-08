@@ -5,8 +5,8 @@
  *
  *   Max → node : "transport <playing> <beat> <tempo> <num> <den>"  (live.observer)
  *                "track <name…>"                                    (this device's track name)
- *   node → Max : "midi3 <b1> <b2> <b3> <delayMs>"   → [pipe 0 0 0 0] → [pack 0 0 0] → [midiout]
- *                "midi2 <b1> <b2> <delayMs>"        → [pipe 0 0 0]   → [pack 0 0]   → [midiout]
+ *   node → Max : "midi3 <b1> <b2> <b3> <beat>"  (beat -1 = now) → delay from [transport] → [pipe] → [midiout]
+ *                "midi2 <b1> <b2> <beat>"
  *                "clear"                            → both pipes (drop pending messages)
  *                "status <clients>"                 → UI
  */
@@ -29,15 +29,18 @@ const sched = new MidiScheduler(tr);
 let trackName = '';
 let rejectLogs = 0;
 
-function sendMidi(data, delayMs) {
-  const d = Math.round(delayMs * 100) / 100;
-  if (data.length === 3) toMax('midi3', data[0], data[1], data[2], d);
-  else toMax('midi2', data[0], data[1], d);
+/** To Max with the Live beat to play it on (-1 = now): Max reads its own [transport] when
+ *  the message arrives and waits the rest — the note lands on Live's beat whatever the
+ *  delays between Live, this script and Max. */
+function sendMidi(data, beat) {
+  const b = beat === undefined || beat === null ? -1 : Math.round(beat * 1e6) / 1e6;
+  if (data.length === 3) toMax('midi3', data[0], data[1], data[2], b);
+  else toMax('midi2', data[0], data[1], b);
 }
 
 function clearAll() {
   toMax('clear');
-  for (const off of sched.clear(now())) sendMidi(off, 0);
+  for (const off of sched.clear(now())) sendMidi(off, -1);
 }
 
 // ── WebSocket server ────────────────────────────────────────────────────────
@@ -91,7 +94,7 @@ wss.on('connection', (ws, req) => {
         const r = sched.schedule(msg, now());
         // Diagnostics: the first few refused messages, as received.
         if (!r && rejectLogs < 5) { rejectLogs++; log('refused midi:', JSON.stringify(msg).slice(0, 160), `playing=${tr.playing} beatNow=${tr.beatAt(now()).toFixed(3)}`); }
-        if (r) sendMidi(r.data, r.delayMs);
+        if (r) sendMidi(r.data, r.beat);
         break;
       }
       case 'clear': clearAll(); break;
