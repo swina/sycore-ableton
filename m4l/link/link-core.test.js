@@ -83,10 +83,13 @@ test('parseMessage: JSON, type, version', () => {
   assert.equal(parseMessage('{"v":1}').error.code, 'bad-message');
 });
 
-test('position reports are smoothed: a report 20 ms off moves the estimate by a fifth', () => {
+test('position reports are smoothed: one read 20 ms late barely moves the estimate, one ahead counts more', () => {
   const tr = playingAt120();
   tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500);
-  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.2)) < 1e-9);
+  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.02)) < 1e-9);
+  const tr2 = playingAt120();
+  tr2.set({ playing: 1, beat: 1 + 0.04, tempo: 120 }, 500);
+  assert.ok(Math.abs(tr2.beatAt(500) - (1 + 0.04 * 0.3)) < 1e-9);
 });
 
 test('a jump in position is taken at once', () => {

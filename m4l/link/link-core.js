@@ -8,8 +8,10 @@ const LATE_TOLERANCE_MS = 5;
 
 /** A position this far off the estimate is a jump (loop, relocation), not delivery jitter (beats). */
 const JUMP_BEATS = 0.25;
-/** Share of each report's error taken into the estimate (smoothing of the delivery jitter). */
-const SMOOTH_GAIN = 0.2;
+/** Share of a report's error taken into the estimate: a report is never early (true when Live
+ *  sent it, read later), so one ahead of the estimate counts a good part, one behind it barely. */
+const GAIN_AHEAD = 0.3;
+const GAIN_BEHIND = 0.02;
 
 class Transport {
   constructor() { this.playing = false; this.beat = 0; this.tempo = 120; this.num = 4; this.den = 4; this.at = 0; this.resetJitter(); }
@@ -42,7 +44,7 @@ class Transport {
       const err = Number(beat) - predicted;
       if (Math.abs(err) > JUMP_BEATS) this.beat = Number(beat);
       else {
-        this.beat = predicted + err * SMOOTH_GAIN;
+        this.beat = predicted + err * (err > 0 ? GAIN_AHEAD : GAIN_BEHIND);
         this.jitter.n++;
         const offMs = (Math.abs(err) * 60000) / t;
         if (offMs > this.jitter.maxLateMs) this.jitter.maxLateMs = offMs;
