@@ -11,24 +11,19 @@ Prova se un device Max for Live può fare da ponte tra Live e SY.CORE via **WebS
 |---|---|
 | `sycore-link-spike.js` | Server WebSocket + pagina di test sulla porta 9400. In Node for Max riceve il transport di Live e manda le note a Max; con `--sim` gira in Node puro con un Live simulato a 120 BPM |
 | `test.html` | Pagina di test (servita anche da `http://127.0.0.1:9400/`): Connect, Ping test, Note test 1/16 per 8 battute |
+| `sycore-link-spike.maxpat`, `make-patch.mjs` | La patch del device, pronta da incollare, e lo script che la genera |
 | `bench.mjs` | Lo stesso test da riga di comando, senza browser né Live (`npm run sim`, poi `npm run bench`) |
 
 Risultato in simulazione (WSL, 2026-11-08): ping 200/200, RTT medio 0,3 ms, max 1,2 ms; note arrivate 90–96 ms prima del beat (lookahead 100 ms), nessuna in ritardo.
 
 ## Costruire il device in Live
-1. Copia questa cartella su Windows (es. `D:\personal\apps\sycore-ableton\m4l\spike`) e lancia `npm install` dentro (serve `ws`). In alternativa, dopo il passo 3, manda a `node.script` il messaggio `script npm install`.
-2. In Live: una traccia MIDI con uno strumento → trascina un **Max MIDI Effect** → Edit. Salvalo **in questa cartella** come `sycore-link-spike.amxd` (così `node.script` trova lo script).
-3. Oggetti nella patch:
-   - **Bridge:** `[node.script sycore-link-spike.js @autostart 1]`
-   - **Transport di Live → bridge:**
-     `[live.thisdevice]` → `[t b]` → un message box `path live_set` → `[live.path]`; l'uscita sinistra (id) va nell'ingresso **destro** di tre oggetti:
-     `[live.observer is_playing]`, `[live.observer current_song_time]`, `[live.observer tempo]`.
-     Le loro uscite vanno nei tre ingressi di `[pak 0 0. 0.]` → `[prepend transport]` → `node.script`.
-   - **Bridge → note:** uscita di `node.script` → `[route note status]`.
-     `note` → `[pipe 0 0 0 0]` (pitch, vel, durata; l'ultimo elemento della lista è il ritardo in ms) → le tre uscite nei tre ingressi di `[makenote 100 125]` → le due uscite in `[pack 0 0]` → `[midiformat]` → `[midiout]`.
-     `status` → `[prepend set]` → un `[message]` (numero di client collegati).
-   - **MIDI della traccia invariato:** `[midiin]` → `[midiout]`.
-4. Blocca la patch e salva. Nella console di Max deve comparire `SY.CORE Link spike on ws://127.0.0.1:9400 (Max)`.
+Patch già pronta: `sycore-link-spike.maxpat` (generata da `node make-patch.mjs`). Una copia della cartella, con `node_modules`, è in `C:\Users\swina\Documents\sycore-link-spike`.
+1. In Live: una traccia MIDI con uno strumento → trascina un **Max MIDI Effect** → **Edit**.
+2. Nell'editor Max: **File › Open** `sycore-link-spike.maxpat` → nella patch aperta sblocca (Ctrl+E), **Ctrl+A**, **Ctrl+C** → torna al device, cancella gli oggetti di default (`midiin`/`midiout`), **Ctrl+V**.
+3. **Salva il device in quella cartella** come `sycore-link-spike.amxd` (così `node.script` trova lo script), bloccalo e chiudi l'editor.
+4. Nella console di Max: `SY.CORE Link spike on ws://127.0.0.1:9400 (Max)`. Se manca `ws`, clicca il message box `script npm install`, poi `script start`.
+
+Cosa c'è nella patch: `live.thisdevice` → `path live_set` → `live.path` → tre `live.observer` (is_playing, current_song_time, tempo) → `pak` → `prepend transport` → `node.script`; uscita → `route note status`; `note` → `pipe 0 0 0 0` (l'ultimo elemento è il ritardo in ms) → `makenote` → `pack` → `midiformat` → `midiout`; `status` → numero di client; `midiin` → `midiout` per il MIDI della traccia.
 
 ## Prova
 1. Live in **Play**.
