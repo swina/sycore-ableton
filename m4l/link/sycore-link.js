@@ -21,7 +21,7 @@ const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 let max = null;
 if (!SIM) { try { max = require('max-api'); } catch { /* plain node: simulated Live */ } }
 const log = (...a) => (max ? max.post(a.join(' ')) : console.log('[link]', ...a));
-const toMax = (...a) => { if (max) max.outlet(...a); };
+const toMax = (...a) => { if (max) Promise.resolve(max.outlet(...a)).catch(e => log('outlet failed:', e)); };
 const now = () => performance.now();
 
 const tr = new Transport();
@@ -39,6 +39,21 @@ function clearAll() {
   for (const off of sched.clear(now())) sendMidi(off, 0);
 }
 
+// ── WebSocket server ────────────────────────────────────────────────────────
+// Created before the Max handlers: Max delivers Live's transport reports as soon as
+// they are registered, and a report reaching broadcast() before `wss` existed crashed
+// the script (Max restarted it in a loop).
+const server = http.createServer((req, res) => { res.writeHead(404); res.end(); });
+const wss = new WebSocketServer({ server });
+
+function send(ws, obj) { try { ws.send(JSON.stringify({ v: PROTOCOL_VERSION, ...obj })); } catch {} }
+function broadcast(obj) { wss.clients.forEach(ws => send(ws, obj)); }
+
+/** A handler error is logged to the Max console instead of ending the script. */
+const safe = (name, fn) => (...args) => { try { return fn(...args); } catch (e) { log(`${name} failed:`, e && e.stack || e); } };
+process.on('uncaughtException', e => log('uncaught:', e && e.stack || e));
+process.on('unhandledRejection', e => log('unhandled rejection:', e && e.stack || e));
+
 // ── Live transport ───────────────────────────────────────────────────────────
 function onTransport(playing, beat, tempo, num, den) {
   const wasPlaying = tr.playing;
@@ -48,20 +63,15 @@ function onTransport(playing, beat, tempo, num, den) {
   if (changed) broadcast(tr.snapshot(now()));
 }
 if (max) {
-  max.addHandler('transport', onTransport);
-  max.addHandler('track', (...name) => { trackName = name.join(' '); });
+  max.addHandler('transport', safe('transport', onTransport));
+  max.addHandler('track', safe('track', (...name) => { trackName = name.join(' '); }));
 } else {
   // Simulated Live: 120 BPM from beat 0, reports at Live's UI rate.
   tr.set({ playing: 1, beat: 0, tempo: 120, num: 4, den: 4 }, now());
   setInterval(() => tr.set({ playing: 1, tempo: tr.tempo }, now()), 60);
 }
 
-// ── WebSocket ───────────────────────────────────────────────────────────────
-const server = http.createServer((req, res) => { res.writeHead(404); res.end(); });
-const wss = new WebSocketServer({ server });
-
-function send(ws, obj) { try { ws.send(JSON.stringify({ v: PROTOCOL_VERSION, ...obj })); } catch {} }
-function broadcast(obj) { wss.clients.forEach(ws => send(ws, obj)); }
+// ── WebSocket (connection handling) ─────────────────────────────────────────
 
 setInterval(() => broadcast(tr.snapshot(now())), 50);
 setInterval(() => { const s = sched.takeStats(); if (s) broadcast(s); }, 1000);
@@ -71,7 +81,7 @@ wss.on('connection', (ws, req) => {
   toMax('status', wss.clients.size);
   send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max });
   send(ws, tr.snapshot(now()));
-  ws.on('message', text => {
+  ws.on('message', safe('message', text => {
     const { msg, error } = parseMessage(text);
     if (error) { send(ws, { type: 'error', ...error }); return; }
     if (!msg) return;
@@ -86,7 +96,7 @@ wss.on('connection', (ws, req) => {
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)
     }
-  });
+  }));
   ws.on('close', () => {
     toMax('status', wss.clients.size);
     log('client gone');
