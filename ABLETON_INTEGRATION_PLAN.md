@@ -493,7 +493,7 @@ Device built from the ready-made patch `m4l/spike/sycore-link-spike.maxpat` (Max
 - **Notes (1/16, 8 bars, lookahead 100 ms):** all on time in every run, also with SY.CORE playing in parallel; lead min 73 ms, avg ~92 ms (worst delivery ~27 ms).
 - **Recorded clip** (second track, MIDI From = spike track, Post FX): notes on the 1/16 grid, none missing or doubled; same with **Chrome minimized** (Worker timer not throttled).
 - **Lessons:** Live records a track's input, before MIDI effects — record the device output on a second track (Post FX). Max may save over an opened `.maxpat`: close it without saving. Two Note tests at once double the stream (one tab, one click).
-- **https (Vercel preview `/link-spike.html` → `ws://127.0.0.1:9400`):** Chrome shows a **Local Network Access permission prompt** once; accepted, it connects and every note arrives on time (lead min 57 ms with two streams at once). The permission is per origin: each Vercel preview URL asks again, the production domain once. The guide and the SY.CORE client must explain the prompt and handle a refusal.
+- **https (Vercel preview `/link-spike.html` → `ws://127.0.0.1:9400`):** Chrome shows a **Local Network Access permission prompt** once (about the site wanting to access devices on the local network) and remembers it: no prompt after a reload; accepted, it connects and every note arrives on time (lead min 57 ms with two streams at once). The permission is per origin: each Vercel preview URL asks again, the production domain once. The guide and the SY.CORE client must explain the prompt and handle a refusal.
 - **Next:** protocol v1 and the SY.CORE client (step 2).
 
 #### 11.4 Risks specific to P11
