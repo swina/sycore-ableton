@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 12 · 2026-11-08 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; F1 completata, scheduler nel Worker compreso; prima parte della F3 Control Map completata, vedi §4; passi 1–2b della F9 e prime opzioni per traccia completati, vedi §9.9; spike F11 "SY.CORE Link": prova locale superata, prossima la prova https, vedi §11.5)*
+*Rev. 12 · 2026-11-08 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; F1 completata, scheduler nel Worker compreso; prima parte della F3 Control Map completata, vedi §4; passi 1–2b della F9 e prime opzioni per traccia completati, vedi §9.9; spike F11 "SY.CORE Link" superato, in locale e da https, vedi §11.5; prossimo il protocollo v1)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -486,14 +486,15 @@ Una famiglia di device Max for Live che collega Live e SY.CORE **senza porte MID
 
 **Test:** andata e ritorno del protocollo (unit, da entrambi i lati), riconnessione senza note appese, timing delle note misurato rispetto al percorso loopback, due istanze su due tracce, Live fermo / in play / in loop.
 
-#### 11.5 Stato dello spike (2026-11-08) — prova locale superata
+#### 11.5 Stato dello spike (2026-11-08) — superato (locale e https)
 Device costruito dalla patch pronta `m4l/spike/sycore-link-spike.maxpat` (Max MIDI Effect, salvato come `.amxd` accanto allo script); Live 12, Windows, Chrome, 75 BPM.
 - **Connessione** da `http://localhost:9400`: aperta in 6–7 ms, transport (play, beat, tempo) letto dalla Live API.
 - **RTT:** media 0,85 ms, p99 2–5 ms, max 5,5 ms (200 ping).
 - **Note (1/16, 8 battute, lookahead 100 ms):** tutte in tempo in ogni prova, anche con SY.CORE che suonava in parallelo; anticipo minimo 73 ms, medio ~92 ms (consegna peggiore ~27 ms).
 - **Clip registrata** (seconda traccia, MIDI From = traccia dello spike, Post FX): note sulla griglia da 1/16, nessuna mancante o doppia; uguale con **Chrome ridotto a icona** (il timer nel Worker non viene rallentato).
 - **Lezioni:** Live registra l'ingresso della traccia, prima degli effetti MIDI — l'uscita del device si registra su una seconda traccia (Post FX). Max può salvare sopra un `.maxpat` aperto: chiuderlo senza salvare. Due Note test insieme raddoppiano il flusso (una scheda, un clic).
-- **Prossimo:** la prova https (`/link-spike.html` sul deploy Vercel → `ws://127.0.0.1:9400`, Local Network Access di Chrome), poi il protocollo v1 (passo 2).
+- **https (preview Vercel `/link-spike.html` → `ws://127.0.0.1:9400`):** Chrome mostra **una volta** una richiesta di permesso (Local Network Access); accettata, si collega e tutte le note arrivano in tempo (anticipo minimo 57 ms con due flussi insieme). Il permesso vale per origine: ogni URL di preview Vercel lo richiede, il dominio di produzione una volta sola. La guida e il client SY.CORE devono spiegare la richiesta e gestire il rifiuto.
+- **Prossimo:** protocollo v1 e client SY.CORE (passo 2).
 
 #### 11.4 Rischi propri della F11
 | Rischio | Mitigazione |
