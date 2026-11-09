@@ -1,4 +1,6 @@
 // Generates the SY.CORE Link device patches — run: node make-patch.mjs
+// The devices play only SY.CORE's MIDI: the track's own input is not passed through (with MIDI From =
+// All Ins, a controller's notes and CCs would reach the instruments of the tracks recording from it).
 //   sycore-link.maxpat          the bridge (one per Live set): WebSocket server, Live's transport, timed MIDI
 //   sycore-link-receive.maxpat  a receiver for other tracks: the bridge's MIDI on one channel (or all)
 // Every MIDI message the bridge plays is also sent to [s sycore_link_midi] (global across the
@@ -89,7 +91,6 @@ const bridge = build([
   ['tclr', 't clear clear', 1, 2, 330, 340],
   ['snd', `s ${SEND_NAME}`, 1, 0, 250, 520],
   ...filterBoxes(30, 520, [10, 92, 60, 18]),
-  ['in', 'midiin', 1, 1, 700, 560],
   // [iter]: raw bytes one at a time — the safe way into [midiout]
   ['iter', 'iter', 1, 1, 30, 650],
   ['out', 'midiout', 1, 0, 30, 680],
@@ -123,7 +124,6 @@ const bridge = build([
   ['route', 2, 'tclr', 0], ['tclr', 0, 'pipe3', 0], ['tclr', 1, 'pipe2', 0],
   ['route', 3, 'pinfo', 0], ['pinfo', 0, 'info', 0],
   ['route', 4, 'pstats', 0], ['pstats', 0, 'stats', 0],
-  ['in', 0, 'out', 0],
 ], { width: 270 });
 
 // ── Receiver ────────────────────────────────────────────────────────────────
@@ -131,14 +131,13 @@ const receiver = build([
   ['rcv', `r ${SEND_NAME}`, 1, 1, 30, 20],
   ...filterBoxes(30, 60, [10, 34, 60, 18]),
   ['iter', 'iter', 1, 1, 30, 190],
-  ['in', 'midiin', 1, 1, 200, 190],
   ['out', 'midiout', 1, 0, 30, 220],
   ['ttl', 'SY.CORE Link Receive', 1, 0, 400, 20, title([8, 6, 200, 20])],
   ['chl', 'Channel', 1, 0, 400, 50, comment([76, 34, 80, 18])],
   ['hint', 'Needs the SY.CORE Link device on a track of this set', 1, 0, 400, 80,
     comment([8, 60, 190, 32], { textcolor: [0.6, 0.6, 0.6, 1] })],
 ], [
-  ['rcv', 0, 'ft', 0], ...filterLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0], ['in', 0, 'out', 0],
+  ['rcv', 0, 'ft', 0], ...filterLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0],
 ], { width: 210 });
 
 for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver]]) {

@@ -791,24 +791,6 @@
       },
       {
         "box": {
-          "id": "obj-in",
-          "maxclass": "newobj",
-          "numinlets": 1,
-          "numoutlets": 1,
-          "outlettype": [
-            ""
-          ],
-          "patching_rect": [
-            700,
-            560,
-            60,
-            22
-          ],
-          "text": "midiin"
-        }
-      },
-      {
-        "box": {
           "id": "obj-iter",
           "maxclass": "newobj",
           "numinlets": 1,
@@ -1802,18 +1784,6 @@
           ],
           "destination": [
             "obj-stats",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "obj-in",
-            0
-          ],
-          "destination": [
-            "obj-out",
             0
           ]
         }
