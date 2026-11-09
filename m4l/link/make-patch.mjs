@@ -34,7 +34,7 @@ function build(B, L, { width }) {
       id: id(k), maxclass: kind, numinlets: ni, numoutlets: no, outlettype: Array(no).fill(''),
       patching_rect: [x, y, Math.max(60, String(text).length * 7 + 16), 22], ...extra,
     };
-    if (!['live.menu', 'live.numbox', 'led', 'panel', 'jsui'].includes(kind)) box.text = text;
+    if (!['live.menu', 'live.numbox', 'led', 'panel', 'jsui', 'inlet'].includes(kind)) box.text = text;
     if (p) { box.presentation = 1; box.presentation_rect = p; }
     // Keys in alphabetical order, as Max saves them (a live.tab ignored its rows otherwise).
     return { box: Object.fromEntries(Object.entries(box).sort(([a], [b]) => a.localeCompare(b))) };
@@ -262,12 +262,19 @@ const receiver = build([
 const RIG_W = 380;
 const jsui = (p, extra = {}) => ({ kind: 'jsui', p, filename: `${LINK_DIR}/sycore-rig-grid.js`, border: 0, ...extra });
 const WIN = [760, 330];
+// OPEN reaches the window twice: [pcontrol] open on its box, and "front" to its own [thispatcher]
+// through a device-local send (---: this device only) — either one opens it and brings it forward.
 const rigWindow = build([
-  ['in', 'inlet', 0, 1, 20, 20],
+  ['in', '', 0, 1, 20, 20, { kind: 'inlet', index: 1, comment: '' }],
   ['wr', `r ${RIG_STATE}`, 1, 1, 20, 400],
   ['grid', '', 1, 1, 0, 0, jsui([0, 0, ...WIN], { patching_rect: [0, 0, ...WIN] })],
   ['ws', `s ${RIG_PRESS}`, 1, 0, 20, 440],
-], [['wr', 0, 'grid', 0], ['grid', 0, 'ws', 0]], { width: WIN[0] }).patcher;
+  ['wf', 'r ---rig_front', 1, 1, 200, 400],
+  ['wb', 't b', 1, 1, 260, 400],
+  ['wd', 'delay 30', 2, 1, 200, 430],
+  ['wm', 'front', 2, 1, 200, 460, { kind: 'message' }],
+  ['wt', 'thispatcher', 1, 2, 200, 490],
+], [['wr', 0, 'grid', 0], ['grid', 0, 'ws', 0], ['wf', 0, 'wb', 0], ['wb', 0, 'wd', 0], ['wd', 0, 'wm', 0], ['wm', 0, 'wt', 0]], { width: WIN[0] }).patcher;
 Object.assign(rigWindow, { rect: [120, 120, 120 + WIN[0], 120 + WIN[1]], toolbarvisible: 0, statusbarvisible: 0, enablehscroll: 0, enablevscroll: 0, bgcolor: C.panel });
 const rig = build([
   ['rr', `r ${RIG_STATE}`, 1, 1, 30, 20],
@@ -284,16 +291,21 @@ const rig = build([
     textcolor: C.ink, textoncolor: hex('#000000'), activetextcolor: C.ink, activetextoncolor: hex('#000000'),
     bordercolor: C.border, focusbordercolor: C.border,
   }],
+  // live.text's click: 1 (or a bang) opens; its 0 does not
+  ['orb', 'route bang', 1, 2, 520, 40],
   ['osel', 'sel 1', 2, 2, 420, 60],
+  ['ofs', 's ---rig_front', 1, 0, 560, 120],
   ['omsg', 'open', 2, 1, 420, 90, { kind: 'message' }],
   ['pc', 'pcontrol', 1, 1, 420, 120],
   ['win', 'p SY.CORE Rig', 1, 0, 420, 160, { patcher: rigWindow }],
   ...chrome(RIG_W, 25).filter(b => b[0] !== 'div'),
-  ['ttl', 'SY.CORE RIG', 1, 0, 600, 20, title([28, 5, 150, 20])],
-  ['sub', 'slots · mute · solo · sections', 1, 0, 600, 50, hint([128, 6, 180, 18])],
+  ['ttl', 'SY.CORE RIG', 1, 0, 600, 20, title([10, 5, 90, 20])],
+  // the chord sounding and the next one (the same script, in a box less than 40 px tall)
+  ['chd', '', 1, 1, 30, 260, jsui([100, 5, RIG_W - 64 - 108, 18], { patching_rect: [30, 260, 208, 18] })],
 ], [
-  ['rr', 0, 'grid', 0], ['grid', 0, 'rs', 0],
-  ['open', 0, 'osel', 0], ['osel', 0, 'omsg', 0], ['omsg', 0, 'pc', 0], ['pc', 0, 'win', 0],
+  ['rr', 0, 'grid', 0], ['grid', 0, 'rs', 0], ['rr', 0, 'chd', 0],
+  ['open', 0, 'orb', 0], ['orb', 0, 'omsg', 0], ['orb', 1, 'osel', 0], ['osel', 0, 'omsg', 0],
+  ['omsg', 0, 'pc', 0], ['pc', 0, 'win', 0], ['omsg', 0, 'ofs', 0],
 ], { width: RIG_W });
 
 for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver], ['sycore-rig.maxpat', rig]]) {

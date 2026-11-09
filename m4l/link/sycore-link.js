@@ -13,6 +13,7 @@
  *                "state <0|1|2>"                    → status LED: waiting, connected, error
  *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo>"  → [s sycore_rig]
  *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
+ *                "rig chord <now> <duration> <next> <duration>"  ('-' = none)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -62,6 +63,8 @@ function sendRig() {
   toMax('rig', 'active', 1);
   rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo));
   toMax('rig', 'sec', rigState.section, rigState.queuedSection);
+  const c = rigState.chord;
+  toMax('rig', 'chord', c ? c.now : '-', c ? c.dur : '-', c ? c.next : '-', c ? c.nextDur : '-');
 }
 
 function clearAll() {

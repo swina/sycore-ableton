@@ -220,7 +220,14 @@ function parseRig(m) {
     const r = m.rows[i] || {};
     return { filled: int(r.filled, 0, 255, 0), playing: int(r.playing, -1, 7, -1), queued: int(r.queued, -1, 7, -1), muted: r.muted ? 1 : 0, solo: r.solo ? 1 : 0 };
   });
-  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1) };
+  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1), chord: rigChord(m.chord) };
+}
+/** The chord sounding and the next one, as Max symbols: no spaces, '-' for none (an empty symbol
+ *  would be lost in a Max message), at most 12 characters. */
+const sym = v => (String(v == null ? '' : v).replace(/\s+/g, '').slice(0, 12) || '-');
+function rigChord(c) {
+  if (!c || typeof c !== 'object') return null;
+  return { now: sym(c.now), dur: sym(c.dur), next: sym(c.next), nextDur: sym(c.nextDur) };
 }
 /** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, sections. */
 const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo)_(chord|drum|seq|bass|arp)|section_[1-8])$/.test(String(n));

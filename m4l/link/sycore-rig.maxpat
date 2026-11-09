@@ -185,6 +185,25 @@
       },
       {
         "box": {
+          "id": "obj-orb",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": [
+            "",
+            ""
+          ],
+          "patching_rect": [
+            520,
+            40,
+            86,
+            22
+          ],
+          "text": "route bang"
+        }
+      },
+      {
+        "box": {
           "id": "obj-osel",
           "maxclass": "newobj",
           "numinlets": 2,
@@ -200,6 +219,22 @@
             22
           ],
           "text": "sel 1"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ofs",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            560,
+            120,
+            114,
+            22
+          ],
+          "text": "s ---rig_front"
         }
       },
       {
@@ -266,8 +301,10 @@
             "boxes": [
               {
                 "box": {
+                  "comment": "",
                   "id": "obj-in",
-                  "maxclass": "newobj",
+                  "index": 1,
+                  "maxclass": "inlet",
                   "numinlets": 0,
                   "numoutlets": 1,
                   "outlettype": [
@@ -278,8 +315,7 @@
                     20,
                     60,
                     22
-                  ],
-                  "text": "inlet"
+                  ]
                 }
               },
               {
@@ -341,6 +377,97 @@
                   ],
                   "text": "s sycore_rig_in"
                 }
+              },
+              {
+                "box": {
+                  "id": "obj-wf",
+                  "maxclass": "newobj",
+                  "numinlets": 1,
+                  "numoutlets": 1,
+                  "outlettype": [
+                    ""
+                  ],
+                  "patching_rect": [
+                    200,
+                    400,
+                    114,
+                    22
+                  ],
+                  "text": "r ---rig_front"
+                }
+              },
+              {
+                "box": {
+                  "id": "obj-wb",
+                  "maxclass": "newobj",
+                  "numinlets": 1,
+                  "numoutlets": 1,
+                  "outlettype": [
+                    ""
+                  ],
+                  "patching_rect": [
+                    260,
+                    400,
+                    60,
+                    22
+                  ],
+                  "text": "t b"
+                }
+              },
+              {
+                "box": {
+                  "id": "obj-wd",
+                  "maxclass": "newobj",
+                  "numinlets": 2,
+                  "numoutlets": 1,
+                  "outlettype": [
+                    ""
+                  ],
+                  "patching_rect": [
+                    200,
+                    430,
+                    72,
+                    22
+                  ],
+                  "text": "delay 30"
+                }
+              },
+              {
+                "box": {
+                  "id": "obj-wm",
+                  "maxclass": "message",
+                  "numinlets": 2,
+                  "numoutlets": 1,
+                  "outlettype": [
+                    ""
+                  ],
+                  "patching_rect": [
+                    200,
+                    460,
+                    60,
+                    22
+                  ],
+                  "text": "front"
+                }
+              },
+              {
+                "box": {
+                  "id": "obj-wt",
+                  "maxclass": "newobj",
+                  "numinlets": 1,
+                  "numoutlets": 2,
+                  "outlettype": [
+                    "",
+                    ""
+                  ],
+                  "patching_rect": [
+                    200,
+                    490,
+                    93,
+                    22
+                  ],
+                  "text": "thispatcher"
+                }
               }
             ],
             "lines": [
@@ -364,6 +491,54 @@
                   ],
                   "destination": [
                     "obj-ws",
+                    0
+                  ]
+                }
+              },
+              {
+                "patchline": {
+                  "source": [
+                    "obj-wf",
+                    0
+                  ],
+                  "destination": [
+                    "obj-wb",
+                    0
+                  ]
+                }
+              },
+              {
+                "patchline": {
+                  "source": [
+                    "obj-wb",
+                    0
+                  ],
+                  "destination": [
+                    "obj-wd",
+                    0
+                  ]
+                }
+              },
+              {
+                "patchline": {
+                  "source": [
+                    "obj-wd",
+                    0
+                  ],
+                  "destination": [
+                    "obj-wm",
+                    0
+                  ]
+                }
+              },
+              {
+                "patchline": {
+                  "source": [
+                    "obj-wm",
+                    0
+                  ],
+                  "destination": [
+                    "obj-wt",
                     0
                   ]
                 }
@@ -406,9 +581,9 @@
           ],
           "presentation": 1,
           "presentation_rect": [
-            28,
+            10,
             5,
-            150,
+            90,
             20
           ],
           "text": "SY.CORE RIG",
@@ -422,31 +597,27 @@
       },
       {
         "box": {
-          "fontsize": 9,
-          "id": "obj-sub",
-          "maxclass": "comment",
+          "border": 0,
+          "filename": "C:/Users/swina/Documents/sycore-link/sycore-rig-grid.js",
+          "id": "obj-chd",
+          "maxclass": "jsui",
           "numinlets": 1,
-          "numoutlets": 0,
-          "outlettype": [],
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
           "patching_rect": [
-            600,
-            50,
-            226,
-            22
+            30,
+            260,
+            208,
+            18
           ],
           "presentation": 1,
           "presentation_rect": [
-            128,
-            6,
-            180,
+            100,
+            5,
+            208,
             18
-          ],
-          "text": "slots · mute · solo · sections",
-          "textcolor": [
-            0.357,
-            0.384,
-            0.396,
-            1
           ]
         }
       },
@@ -569,8 +740,44 @@
       {
         "patchline": {
           "source": [
+            "obj-rr",
+            0
+          ],
+          "destination": [
+            "obj-chd",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "obj-open",
             0
+          ],
+          "destination": [
+            "obj-orb",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-orb",
+            0
+          ],
+          "destination": [
+            "obj-omsg",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-orb",
+            1
           ],
           "destination": [
             "obj-osel",
@@ -610,6 +817,18 @@
           ],
           "destination": [
             "obj-win",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-omsg",
+            0
+          ],
+          "destination": [
+            "obj-ofs",
             0
           ]
         }
