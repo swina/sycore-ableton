@@ -227,7 +227,10 @@ function parseRig(m) {
 const sym = v => (String(v == null ? '' : v).replace(/\s+/g, '').slice(0, 12) || '-');
 function rigChord(c) {
   if (!c || typeof c !== 'object') return null;
-  return { now: sym(c.now), dur: sym(c.dur), next: sym(c.next), nextDur: sym(c.nextDur) };
+  return {
+    now: sym(c.now), dur: sym(c.dur), next: sym(c.next), nextDur: sym(c.nextDur),
+    ms: int(c.ms, 0, 600000, 0), bars: Math.max(0, Math.min(64, Number(c.bars) || 0)), seq: int(c.seq, 0, 2147483647, 0),
+  };
 }
 /** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, sections. */
 const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo)_(chord|drum|seq|bass|arp)|section_[1-8])$/.test(String(n));

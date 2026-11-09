@@ -13,7 +13,7 @@
  *                "state <0|1|2>"                    → status LED: waiting, connected, error
  *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo>"  → [s sycore_rig]
  *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
- *                "rig chord <now> <duration> <next> <duration>"  ('-' = none)
+ *                "rig chord <now> <duration> <next> <duration> <ms> <bars> <seq> <elapsed ms>"  ('-' = none)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -38,6 +38,7 @@ let lastStats = '';
 /** The Rig Controller's state as SY.CORE last sent it (re-sent to the Rig devices every second,
  *  so one added later shows it); null = no Rig Controller open in SY.CORE. */
 let rigState = null;
+let chordAt = 0; // when the chord sounding started (its seq first seen)
 
 /** Status lines on the device (words as separate atoms: Max shows them without quotes). */
 const words = t => String(t).split(' ');
@@ -64,7 +65,9 @@ function sendRig() {
   rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo));
   toMax('rig', 'sec', rigState.section, rigState.queuedSection);
   const c = rigState.chord;
-  toMax('rig', 'chord', c ? c.now : '-', c ? c.dur : '-', c ? c.next : '-', c ? c.nextDur : '-');
+  // + its length (ms), bars, the step counter and the ms already gone (a device added mid-chord)
+  toMax('rig', 'chord', c ? c.now : '-', c ? c.dur : '-', c ? c.next : '-', c ? c.nextDur : '-',
+    c ? c.ms : 0, c ? c.bars : 0, c ? c.seq : 0, c ? Date.now() - chordAt : 0);
 }
 
 function clearAll() {
@@ -130,7 +133,12 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'clear': clearAll(); break;
-      case 'rig': { const r = parseRig(msg); if (r !== undefined) { rigState = r; sendRig(); } break; }
+      case 'rig': {
+        const r = parseRig(msg);
+        if (r === undefined) break;
+        if (r && r.chord && (!rigState || !rigState.chord || rigState.chord.seq !== r.chord.seq)) chordAt = Date.now();
+        rigState = r; sendRig(); break;
+      }
       case 'ping': send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(now()) }); break;
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)

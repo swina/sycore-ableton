@@ -301,7 +301,7 @@ const rig = build([
   ...chrome(RIG_W, 25).filter(b => b[0] !== 'div'),
   ['ttl', 'SY.CORE RIG', 1, 0, 600, 20, title([10, 5, 90, 20])],
   // the chord sounding and the next one (the same script, in a box less than 40 px tall)
-  ['chd', '', 1, 1, 30, 260, jsui([100, 5, RIG_W - 64 - 108, 18], { patching_rect: [30, 260, 208, 18] })],
+  ['chd', '', 1, 1, 30, 260, jsui([100, 3, RIG_W - 64 - 108, 22], { patching_rect: [30, 260, 208, 22] })],
 ], [
   ['rr', 0, 'grid', 0], ['grid', 0, 'rs', 0], ['rr', 0, 'chd', 0],
   ['open', 0, 'orb', 0], ['orb', 0, 'omsg', 0], ['orb', 1, 'osel', 0], ['osel', 0, 'omsg', 0],

@@ -132,7 +132,8 @@ test('rig: SY.CORE\'s Rig state for the Rig devices, clamped; active false = non
   assert.equal(r.queuedSection, -1);
   assert.equal(r.chord, null);
   const c = parseRig({ type: 'rig', rows: [], chord: { now: 'C maj7', dur: '1/1', next: '', nextDur: '' } }).chord;
-  assert.deepEqual(c, { now: 'Cmaj7', dur: '1/1', next: '-', nextDur: '-' });
+  assert.deepEqual(c, { now: 'Cmaj7', dur: '1/1', next: '-', nextDur: '-', ms: 0, bars: 0, seq: 0 });
+  assert.deepEqual(parseRig({ type: 'rig', rows: [], chord: { now: 'C', ms: 2000, bars: 1, seq: 4 } }).chord.ms, 2000);
   assert.ok(rigName('rig_slot_bass_h') && rigName('rig_mute_arp') && rigName('rig_section_8'));
   assert.ok(!rigName('rig_global') && !rigName('dm_fill') && !rigName('rig_slot_drum_i'));
 });

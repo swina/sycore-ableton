@@ -5,7 +5,8 @@
 //   in : "row <i> <filled mask> <playing> <queued> <muted> <solo>"   (rows 0–4: Chord Drum Seq Bass Arp)
 //        "sec <section> <queued section>"                            (-1 = none)
 //        "active <0|1>"                                              (a Rig Controller open in SY.CORE)
-//        "chord <now> <duration> <next> <duration>"                  ('-' = none)
+//        "chord <now> <dur> <next> <dur> <ms> <bars> <seq> <elapsed>"  ('-' = none; ms = the chord's
+//                                                                      length, seq = one per step)
 //   out: "rigpress <rig action>"  — rig_slot_<app>_<a–h>, rig_mute_<app>, rig_solo_<app>, rig_section_<1–8>
 //
 // A box less than 40 px tall shows the chord line only (the device's header); a box taller than
@@ -25,6 +26,12 @@ var rows = [];
 for (var i = 0; i < 5; i++) rows.push({ filled: 0, playing: -1, queued: -1, muted: 0, solo: 0 });
 var section = -1, queuedSection = -1, isActive = 0, blink = 0;
 var chordNow = '-', chordDur = '-', chordNext = '-', chordNextDur = '-';
+// The chord's progress bar: green, orange from 80 % (the change is near); a tick per bar.
+var chordMs = 0, chordBars = 0, chordSeq = -1, chordStart = 0;
+var WARN = 0.8;
+var ticker = new Task(function () { if (chordMs > 0) mgraphics.redraw(); }, this);
+ticker.interval = 40;
+ticker.repeat();
 
 var C = {
   bg: [0.075, 0.075, 0.075, 1], cell: [0.12, 0.12, 0.12, 1], border: [1, 1, 1, 0.1],
@@ -44,9 +51,34 @@ function row(i, filled, playing, queued, muted, solo) {
 }
 function sec(s, q) { section = s | 0; queuedSection = q | 0; mgraphics.redraw(); }
 function active(v) { isActive = v | 0; mgraphics.redraw(); }
-function chord(now, dur, next, nextDur) {
+function chord(now, dur, next, nextDur, ms, bars, seq, elapsed) {
   chordNow = String(now); chordDur = String(dur); chordNext = String(next); chordNextDur = String(nextDur);
+  chordMs = ms | 0; chordBars = +bars || 0;
+  // a new step: the bar restarts (the bridge's repeats every second keep the same seq)
+  if ((seq | 0) !== chordSeq) { chordSeq = seq | 0; chordStart = new Date().getTime() - (elapsed | 0); }
   mgraphics.redraw();
+}
+function chordProgress() {
+  if (chordMs <= 0 || none(chordNow)) return -1;
+  return Math.max(0, Math.min(1, (new Date().getTime() - chordStart) / chordMs));
+}
+var C_ORANGE = [0.98, 0.45, 0.09, 1];
+/** The progress bar at x, y, w × h: the elapsed part green (orange from 80 %), a tick per bar. */
+function progressBar(x, y, w, h) {
+  var p = chordProgress();
+  if (p < 0) return;
+  fillRect(x, y, w, h, [1, 1, 1, 0.08]);
+  if (p > 0) {
+    mgraphics.set_source_rgba(p >= WARN ? C_ORANGE : C.green);
+    mgraphics.rectangle_rounded(x, y, Math.max(h, w * p), h, h / 2, h / 2);
+    mgraphics.fill();
+  }
+  var n = Math.round(chordBars);
+  if (n > 1 && n <= 16) for (var i = 1; i < n; i++) {
+    mgraphics.set_source_rgba([0, 0, 0, 0.6]);
+    mgraphics.rectangle(x + (w * i) / n - 0.5, y, 1, h);
+    mgraphics.fill();
+  }
 }
 var none = function (v) { return !v || v === '-'; };
 
@@ -112,13 +144,19 @@ function paint() {
   var w0 = box.rect[2] - box.rect[0], h0 = box.rect[3] - box.rect[1];
   if (h0 < 40) {                    // the chord line only (the device's header)
     fillRect(0, 0, w0, h0, C.bg);
-    chordLine(6, 0, h0, Math.max(9, Math.min(13, h0 * 0.6)));
+    var bh = Math.max(2, Math.round(h0 * 0.14));
+    chordLine(6, 0, h0 - bh - 1, Math.max(9, Math.min(12, h0 * 0.55)));
+    progressBar(4, h0 - bh - 1, w0 - 8, bh);
     return;
   }
   var L = layout();
   var fs = Math.max(8, Math.min(14, L.rowH * 0.42));
   fillRect(0, 0, L.w, L.h, C.bg);
-  if (L.band) chordLine(L.pad * 3, 0, L.band, Math.min(28, L.band * 0.5));
+  if (L.band) {
+    var pb = Math.max(3, Math.round(L.band * 0.12));
+    chordLine(L.pad * 3, 0, L.band - pb - L.pad, Math.min(26, L.band * 0.45));
+    progressBar(L.pad * 3, L.band - pb - L.pad / 2, L.w - L.pad * 6, pb);
+  }
   for (var r = 0; r < 5; r++) {
     var R = rows[r], y = rowY(L, r);
     text(LABELS[r], 0, y, L.labelW + L.pad, L.rowH, R.muted ? C.red : C.muted, fs * 0.85);

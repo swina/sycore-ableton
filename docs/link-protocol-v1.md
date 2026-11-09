@@ -39,7 +39,7 @@ The device also runs `clear` by itself when the last client disconnects.
 ## Rig Controller (SY.CORE Rig devices)
 | From | Message | Fields |
 |---|---|---|
-| client | `rig` | `rows` (5: Chord, Drum, Seq, Bass, Arp — each `filled` bit mask of slots A–H, `playing`, `queued` slot 0–7 or -1, `muted`, `solo`), `section`, `queuedSection` (0–7 or -1), `chord` (`now`, `dur`, `next`, `nextDur`: the chord sounding and the next one with their duration labels, or null); or `active: false` (no Rig Controller open) |
+| client | `rig` | `rows` (5: Chord, Drum, Seq, Bass, Arp — each `filled` bit mask of slots A–H, `playing`, `queued` slot 0–7 or -1, `muted`, `solo`), `section`, `queuedSection` (0–7 or -1), `chord` (`now`, `dur`, `next`, `nextDur`, `ms` the chord's length, `bars`, `seq` one per step: the chord sounding and the next one with their duration labels, or null); or `active: false` (no Rig Controller open) |
 | device | `rig-press` | `name`: the rig action clicked on a SY.CORE Rig device (`rig_slot_<app>_<a–h>`, `rig_mute_<app>`, `rig_solo_<app>`, `rig_section_<1–8>`) |
 
 SY.CORE sends `rig` when the Rig Controller's state changes (and after a `hello`); the bridge passes it to the Rig devices inside Max and repeats it every second, so a device added later shows it. With no client left, the devices get `active` 0.
