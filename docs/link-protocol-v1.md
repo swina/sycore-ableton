@@ -36,6 +36,14 @@ The device also runs `clear` by itself when the last client disconnects.
 | device | `stats` | every second while MIDI arrives: `msgs`, `late`, `dropped`, `leadMinMs`, `leadAvgMs` |
 | device | `error` | `code` (`version`, `bad-message`), `message` |
 
+## Rig Controller (SY.CORE Rig devices)
+| From | Message | Fields |
+|---|---|---|
+| client | `rig` | `rows` (5: Chord, Drum, Seq, Bass, Arp — each `filled` bit mask of slots A–H, `playing`, `queued` slot 0–7 or -1, `muted`, `solo`), `section`, `queuedSection` (0–7 or -1); or `active: false` (no Rig Controller open) |
+| device | `rig-press` | `name`: the rig action clicked on a SY.CORE Rig device (`rig_slot_<app>_<a–h>`, `rig_mute_<app>`, `rig_solo_<app>`, `rig_section_<1–8>`) |
+
+SY.CORE sends `rig` when the Rig Controller's state changes (and after a `hello`); the bridge passes it to the Rig devices inside Max and repeats it every second, so a device added later shows it. With no client left, the devices get `active` 0.
+
 ## Reconnection
 The client retries with back-off (0.5 s → 5 s) while enabled. After a reconnect it waits for the device's `hello` + first `transport` before sending MIDI again.
 

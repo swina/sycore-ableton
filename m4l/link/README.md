@@ -8,6 +8,7 @@ Bridge between SY.CORE (browser) and Live, without virtual MIDI ports. Protocol:
 | `link-core.js` | Parte pura: transport di Live, timing dei messaggi MIDI, note che suonano (per `clear`) |
 | `link-core.test.js` | Test (`npm test`) |
 | `sycore-link.maxpat`, `make-patch.mjs` | Patch del device pronta da incollare, e lo script che la genera |
+| `sycore-rig-grid.js` | La griglia del Rig Controller (`jsui`) usata da `sycore-rig.amxd` |
 
 ## Costruire il device
 Come lo spike (`../spike/README.md`), con questa cartella e questi nomi: Max MIDI Effect → Edit → cancella `midiin`/`midiout` di default → apri `sycore-link.maxpat`, Ctrl+A, Ctrl+C, chiudi **senza salvare** → Ctrl+V nel device → Save As `sycore-link.amxd` **in questa cartella**. Console Max: `SY.CORE Link 1.0.0 on ws://127.0.0.1:9400 (Max)`.
@@ -16,6 +17,11 @@ Lo spike e questo device usano la stessa porta: tienine attivo uno solo.
 
 ## Device pronto
 `node make-patch.mjs && node make-amxd.mjs` → `sycore-link.amxd`: un Max MIDI Effect già fatto, da trascinare su una traccia MIDI di Live (niente editor). Lo script va tenuto in `C:/Users/swina/Documents/sycore-link/` (percorso completo nella patch).
+
+## La griglia del Rig in Live: SY.CORE Rig
+`sycore-rig.amxd` (MIDI Effect, su una traccia qualsiasi, anche più di uno): la slot grid del Rig Controller di SY.CORE — righe Chord, Drum, Seq, Bass, Arp × slot A–H, M / S per riga, Sections 1–8 — con gli stessi colori (pieno ambra, in play verde, in attesa/armato lampeggiante, mute rosso). Un clic fa quello che fa il pad nel pannello (Trigger sync, attesa con Live fermo, Sections). **OPEN** apre la stessa griglia, più grande, in una finestra flottante.
+
+Passa dal device `sycore-link` del set (dentro Max: `[s sycore_rig]` / `[s sycore_rig_in]`), nessuna connessione in più. Funziona mentre in SY.CORE è aperto il **Rig Controller** (anche ridotto a icona); senza, la griglia dice *Open the Rig Controller in SY.CORE*. `sycore-rig-grid.js` va nella stessa cartella dello script (percorso completo nella patch).
 
 ## Più tracce: SY.CORE Link Receive
 `sycore-link-receive.amxd` (MIDI Effect): mettilo sulle altre tracce MIDI e scegli il canale nella griglia 1–16. Riceve dal device `sycore-link` del set (uno solo, su una traccia qualsiasi) i messaggi già messi a tempo e fa passare solo quel canale. Anche `sycore-link` ha il suo **Channel** per la propria traccia (All = tutto, come prima).

@@ -5,15 +5,18 @@
  *
  *   Max → node : "transport <playing> <beat> <tempo> <num> <den>"  (live.observer)
  *                "track <name…>"                                    (this device's track name)
+ *                "rigpress <rig action>"                            (a click on a SY.CORE Rig device)
  *   node → Max : "midi3 <b1> <b2> <b3> <beat>"  (beat -1 = now) → delay from [transport] → [pipe] → [midiout]
  *                "midi2 <b1> <b2> <beat>"
  *                "clear"                            → both pipes (drop pending messages)
  *                "info <text…>" / "stats <text…>"  → the device's status lines
  *                "state <0|1|2>"                    → status LED: waiting, connected, error
+ *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo>"  → [s sycore_rig]
+ *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText } = require('./link-core');
+const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName } = require('./link-core');
 
 const VERSION = '1.0.0';
 const SIM = process.argv.includes('--sim');
@@ -31,6 +34,9 @@ let trackName = '';
 let rejectLogs = 0;
 let serverError = null;
 let lastStats = '';
+/** The Rig Controller's state as SY.CORE last sent it (re-sent to the Rig devices every second,
+ *  so one added later shows it); null = no Rig Controller open in SY.CORE. */
+let rigState = null;
 
 /** Status lines on the device (words as separate atoms: Max shows them without quotes). */
 const words = t => String(t).split(' ');
@@ -48,6 +54,14 @@ function sendMidi(data, beat) {
   const b = beat === undefined || beat === null ? -1 : Math.round(beat * 1e6) / 1e6;
   if (data.length === 3) toMax('midi3', data[0], data[1], data[2], b);
   else toMax('midi2', data[0], data[1], b);
+}
+
+/** The Rig state to the SY.CORE Rig devices (compact: ints, no JSON through Max). */
+function sendRig() {
+  if (!rigState) { toMax('rig', 'active', 0); return; }
+  toMax('rig', 'active', 1);
+  rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo));
+  toMax('rig', 'sec', rigState.section, rigState.queuedSection);
 }
 
 function clearAll() {
@@ -81,6 +95,8 @@ function onTransport(playing, beat, tempo, num, den) {
 if (max) {
   max.addHandler('transport', safe('transport', onTransport));
   max.addHandler('track', safe('track', (...name) => { trackName = name.join(' ').replace(/^"(.*)"$/, '$1'); showInfo(); }));
+  // A click on a SY.CORE Rig device: to SY.CORE as the rig action it is (rig_slot_drum_a, rig_mute_bass…).
+  max.addHandler('rigpress', safe('rigpress', name => { if (rigName(name)) broadcast({ type: 'rig-press', name: String(name) }); }));
 } else {
   // Simulated Live: 120 BPM from beat 0, reports at Live's UI rate.
   tr.set({ playing: 1, beat: 0, tempo: 120, num: 4, den: 4 }, now());
@@ -91,6 +107,7 @@ if (max) {
 
 setInterval(() => broadcast(tr.snapshot(now())), 50);
 setInterval(() => { const s = sched.takeStats(); if (s) broadcast(s); showStats(s); }, 1000);
+setInterval(safe('rig', sendRig), 1000);
 
 wss.on('connection', (ws, req) => {
   log('client connected from', req.headers.origin || '?');
@@ -110,6 +127,7 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'clear': clearAll(); break;
+      case 'rig': { const r = parseRig(msg); if (r !== undefined) { rigState = r; sendRig(); } break; }
       case 'ping': send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(now()) }); break;
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)
@@ -119,7 +137,7 @@ wss.on('connection', (ws, req) => {
     showInfo();
     log('client gone');
     // No client left to send note-offs: end what sounds.
-    if (wss.clients.size === 0) clearAll();
+    if (wss.clients.size === 0) { clearAll(); rigState = null; sendRig(); }
   });
 });
 

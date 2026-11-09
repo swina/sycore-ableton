@@ -3,11 +3,16 @@
 // All Ins, a controller's notes and CCs would reach the instruments of the tracks recording from it).
 //   sycore-link.maxpat          the bridge (one per Live set): WebSocket server, Live's transport, timed MIDI
 //   sycore-link-receive.maxpat  a receiver for other tracks: the bridge's MIDI on one channel (or all)
+//   sycore-rig.maxpat           SY.CORE's Rig Controller slot grid in Live (in the device, and a floating window)
 // Every MIDI message the bridge plays is also sent to [s sycore_link_midi] (global across the
 // Live set's devices), so each receiver on its own track picks its channel: Drum ch 10 → Drum Rack, etc.
 import { writeFileSync } from 'node:fs';
 
 const SEND_NAME = 'sycore_link_midi';
+// Rig devices ↔ the bridge, inside Max: the Rig state out ([s RIG_STATE]), the clicks in ([s RIG_PRESS]).
+const RIG_STATE = 'sycore_rig';
+const RIG_PRESS = 'sycore_rig_in';
+const LINK_DIR = process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link';
 
 // SY.CORE's look (src/assets/main.css in sycore-refactor): dark panels, brand green, cyan accent,
 // bold uppercase titles, small muted uppercase labels. Max colors: [r, g, b, a] in 0–1.
@@ -29,7 +34,7 @@ function build(B, L, { width }) {
       id: id(k), maxclass: kind, numinlets: ni, numoutlets: no, outlettype: Array(no).fill(''),
       patching_rect: [x, y, Math.max(60, String(text).length * 7 + 16), 22], ...extra,
     };
-    if (!['live.menu', 'live.numbox', 'led', 'panel'].includes(kind)) box.text = text;
+    if (!['live.menu', 'live.numbox', 'led', 'panel', 'jsui'].includes(kind)) box.text = text;
     if (p) { box.presentation = 1; box.presentation_rect = p; }
     // Keys in alphabetical order, as Max saves them (a live.tab ignored its rows otherwise).
     return { box: Object.fromEntries(Object.entries(box).sort(([a], [b]) => a.localeCompare(b))) };
@@ -162,8 +167,11 @@ const bridge = build([
   ['start', 'script start', 2, 1, 250, 220, { kind: 'message' }],
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
   // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
-  ['node', `node.script ${(process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link')}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
-  ['route', 'route midi3 midi2 clear info stats state', 1, 7, 30, 300],
+  ['node', `node.script ${LINK_DIR}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
+  ['route', 'route midi3 midi2 clear info stats state rig', 1, 8, 30, 300],
+  // SY.CORE Rig devices: the Rig state to them, their clicks to SY.CORE
+  ['rigs', `s ${RIG_STATE}`, 1, 0, 1000, 300],
+  ['rigr', `r ${RIG_PRESS}`, 1, 1, 1000, 220],
   // midi3 b1 b2 b3 beat → delay = (beat × resolution − ticks now) in ms, from Live's transport in Max
   ['t3', 't l b', 1, 2, 30, 330],
   ['tr3', 'transport', 2, 9, 120, 360],
@@ -208,6 +216,7 @@ const bridge = build([
   ['pak', 0, 'pre', 0], ['pre', 0, 'node', 0],
   ['tpath', 0, 'tlp', 0], ['tlp', 0, 'obName', 1], ['obName', 0, 'tpre', 0], ['tpre', 0, 'node', 0],
   ['start', 0, 'node', 0], ['inst', 0, 'node', 0],
+  ['route', 6, 'rigs', 0], ['rigr', 0, 'node', 0],
   ['node', 0, 'route', 0],
   ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'up3', 0],
   ['tr3', 7, 'ex3', 1], ['tr3', 4, 'ex3', 2], ['tr3', 3, 'ex3', 3],
@@ -246,7 +255,48 @@ const receiver = build([
   ['rcv', 0, 'ft', 0], ...channelGridLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0], ['fg', 0, 'ab', 0], ['ab', 0, 'aled', 0],
 ], { width: 210 });
 
-for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver]]) {
+// ── Rig ─────────────────────────────────────────────────────────────────────
+// The Rig Controller's slot grid ([jsui] sycore-rig-grid.js, drawn to its box): the Rig state from
+// the bridge, each click back to SY.CORE as a rig action. OPEN shows the same grid larger, in a
+// floating window (a subpatcher opened with [pcontrol]).
+const RIG_W = 380;
+const jsui = (p, extra = {}) => ({ kind: 'jsui', p, filename: `${LINK_DIR}/sycore-rig-grid.js`, border: 0, ...extra });
+const WIN = [760, 330];
+const rigWindow = build([
+  ['in', 'inlet', 0, 1, 20, 20],
+  ['wr', `r ${RIG_STATE}`, 1, 1, 20, 400],
+  ['grid', '', 1, 1, 0, 0, jsui([0, 0, ...WIN], { patching_rect: [0, 0, ...WIN] })],
+  ['ws', `s ${RIG_PRESS}`, 1, 0, 20, 440],
+], [['wr', 0, 'grid', 0], ['grid', 0, 'ws', 0]], { width: WIN[0] }).patcher;
+Object.assign(rigWindow, { rect: [120, 120, 120 + WIN[0], 120 + WIN[1]], toolbarvisible: 0, statusbarvisible: 0, enablehscroll: 0, enablevscroll: 0, bgcolor: C.panel });
+const rig = build([
+  ['rr', `r ${RIG_STATE}`, 1, 1, 30, 20],
+  ['grid', '', 1, 1, 30, 60, jsui([8, 28, RIG_W - 16, 134], { patching_rect: [30, 60, 360, 134] })],
+  ['rs', `s ${RIG_PRESS}`, 1, 0, 30, 220],
+  ['open', 'OPEN', 1, 2, 420, 20, {
+    kind: 'live.text', p: [RIG_W - 64, 6, 56, 17], mode: 0, texton: 'OPEN',
+    parameter_enable: 1, varname: 'Open', fontsize: 9, rounded: 2,
+    saved_attribute_attributes: { valueof: {
+      parameter_enum: ['off', 'on'], parameter_mmax: 1, parameter_type: 2, parameter_invisible: 2,
+      parameter_longname: 'Open window', parameter_shortname: 'Open',
+    } },
+    bgcolor: C.canvas, bgoncolor: C.brand, activebgcolor: C.canvas, activebgoncolor: C.brand,
+    textcolor: C.ink, textoncolor: hex('#000000'), activetextcolor: C.ink, activetextoncolor: hex('#000000'),
+    bordercolor: C.border, focusbordercolor: C.border,
+  }],
+  ['osel', 'sel 1', 2, 2, 420, 60],
+  ['omsg', 'open', 2, 1, 420, 90, { kind: 'message' }],
+  ['pc', 'pcontrol', 1, 1, 420, 120],
+  ['win', 'p SY.CORE Rig', 1, 0, 420, 160, { patcher: rigWindow }],
+  ...chrome(RIG_W, 25).filter(b => b[0] !== 'div'),
+  ['ttl', 'SY.CORE RIG', 1, 0, 600, 20, title([28, 5, 150, 20])],
+  ['sub', 'slots · mute · solo · sections', 1, 0, 600, 50, hint([128, 6, 180, 18])],
+], [
+  ['rr', 0, 'grid', 0], ['grid', 0, 'rs', 0],
+  ['open', 0, 'osel', 0], ['osel', 0, 'omsg', 0], ['omsg', 0, 'pc', 0], ['pc', 0, 'win', 0],
+], { width: RIG_W });
+
+for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver], ['sycore-rig.maxpat', rig]]) {
   writeFileSync(new URL('./' + file, import.meta.url), JSON.stringify(p, null, 2));
   console.log('wrote', file, p.patcher.boxes.length, 'boxes,', p.patcher.lines.length, 'lines');
 }

@@ -379,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 7,
+          "numoutlets": 8,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -392,10 +393,44 @@
           "patching_rect": [
             30,
             300,
-            296,
+            324,
             22
           ],
-          "text": "route midi3 midi2 clear info stats state"
+          "text": "route midi3 midi2 clear info stats state rig"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-rigs",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            1000,
+            300,
+            100,
+            22
+          ],
+          "text": "s sycore_rig"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-rigr",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1000,
+            220,
+            121,
+            22
+          ],
+          "text": "r sycore_rig_in"
         }
       },
       {
@@ -1723,6 +1758,30 @@
         "patchline": {
           "source": [
             "obj-inst",
+            0
+          ],
+          "destination": [
+            "obj-node",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            6
+          ],
+          "destination": [
+            "obj-rigs",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-rigr",
             0
           ],
           "destination": [
