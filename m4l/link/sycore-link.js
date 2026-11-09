@@ -9,10 +9,11 @@
  *                "midi2 <b1> <b2> <beat>"
  *                "clear"                            → both pipes (drop pending messages)
  *                "info <text…>" / "stats <text…>"  → the device's status lines
+ *                "state <0|1|2>"                    → status LED: waiting, connected, error
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, statsText } = require('./link-core');
+const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText } = require('./link-core');
 
 const VERSION = '1.0.0';
 const SIM = process.argv.includes('--sim');
@@ -33,7 +34,11 @@ let lastStats = '';
 
 /** Status lines on the device (words as separate atoms: Max shows them without quotes). */
 const words = t => String(t).split(' ');
-function showInfo() { toMax('info', ...words(infoText({ clients: wss.clients.size, port: PORT, error: serverError, track: trackName }))); }
+function showInfo() {
+  const st = { clients: wss.clients.size, port: PORT, error: serverError, track: trackName };
+  toMax('info', ...words(infoText(st)));
+  toMax('state', infoState(st));
+}
 function showStats(s) { const t = statsText(s); if (t !== lastStats) { lastStats = t; toMax('stats', ...words(t)); } }
 
 /** To Max with the Live beat to play it on (-1 = now): Max reads its own [transport] when
@@ -75,7 +80,7 @@ function onTransport(playing, beat, tempo, num, den) {
 }
 if (max) {
   max.addHandler('transport', safe('transport', onTransport));
-  max.addHandler('track', safe('track', (...name) => { trackName = name.join(' '); showInfo(); }));
+  max.addHandler('track', safe('track', (...name) => { trackName = name.join(' ').replace(/^"(.*)"$/, '$1'); showInfo(); }));
 } else {
   // Simulated Live: 120 BPM from beat 0, reports at Live's UI rate.
   tr.set({ playing: 1, beat: 0, tempo: 120, num: 4, den: 4 }, now());

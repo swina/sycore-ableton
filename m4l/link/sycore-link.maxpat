@@ -228,6 +228,24 @@
       },
       {
         "box": {
+          "id": "obj-tdel",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            760,
+            20,
+            72,
+            22
+          ],
+          "text": "del 1500"
+        }
+      },
+      {
+        "box": {
           "id": "obj-tpath",
           "maxclass": "message",
           "numinlets": 2,
@@ -361,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 6,
+          "numoutlets": 7,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -373,10 +392,10 @@
           "patching_rect": [
             30,
             300,
-            254,
+            296,
             22
           ],
-          "text": "route midi3 midi2 clear info stats"
+          "text": "route midi3 midi2 clear info stats state"
         }
       },
       {
@@ -732,6 +751,31 @@
       },
       {
         "box": {
+          "activebgcolor": [
+            0.039,
+            0.039,
+            0.039,
+            1
+          ],
+          "activetextcolor": [
+            0.961,
+            0.961,
+            0.961,
+            1
+          ],
+          "bgcolor": [
+            0.039,
+            0.039,
+            0.039,
+            1
+          ],
+          "bgfillcolor_color": [
+            0.039,
+            0.039,
+            0.039,
+            1
+          ],
+          "fontsize": 10,
           "id": "obj-menu",
           "maxclass": "live.menu",
           "numinlets": 1,
@@ -741,14 +785,20 @@
             "",
             ""
           ],
+          "parameter_enable": 1,
           "patching_rect": [
             360,
             550,
             60,
             22
           ],
-          "parameter_enable": 1,
-          "varname": "Channel",
+          "presentation": 1,
+          "presentation_rect": [
+            66,
+            90,
+            62,
+            18
+          ],
           "saved_attribute_attributes": {
             "valueof": {
               "parameter_enum": [
@@ -780,13 +830,19 @@
               "parameter_mmax": 16
             }
           },
-          "presentation": 1,
-          "presentation_rect": [
-            10,
-            92,
-            60,
-            18
-          ]
+          "textcolor": [
+            0.961,
+            0.961,
+            0.961,
+            1
+          ],
+          "tricolor": [
+            0,
+            0.761,
+            1,
+            1
+          ],
+          "varname": "Channel"
         }
       },
       {
@@ -861,6 +917,127 @@
       },
       {
         "box": {
+          "blinkcolor": [
+            0.961,
+            0.62,
+            0.043,
+            1
+          ],
+          "blinktime": 60,
+          "id": "obj-sled",
+          "ignoreclick": 1,
+          "maxclass": "led",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "offcolor": [
+            1,
+            1,
+            1,
+            0.06
+          ],
+          "oncolor": [
+            0.961,
+            0.62,
+            0.043,
+            1
+          ],
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            700,
+            360,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            10,
+            12,
+            12,
+            12
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ssel",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 4,
+          "outlettype": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "patching_rect": [
+            850,
+            330,
+            79,
+            22
+          ],
+          "text": "sel 0 1 2"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-s0",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            850,
+            360,
+            219,
+            22
+          ],
+          "text": "oncolor 0.961 0.62 0.043 1, 1"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-s1",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1050,
+            360,
+            205,
+            22
+          ],
+          "text": "oncolor 0. 0.639 0.439 1, 1"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-s2",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1250,
+            360,
+            226,
+            22
+          ],
+          "text": "oncolor 0.937 0.267 0.267 1, 1"
+        }
+      },
+      {
+        "box": {
+          "fontface": 1,
+          "fontsize": 12,
           "id": "obj-ttl",
           "maxclass": "comment",
           "numinlets": 1,
@@ -872,21 +1049,27 @@
             100,
             22
           ],
-          "fontsize": 12,
-          "fontface": 1,
-          "text": "SY.CORE Link",
           "presentation": 1,
           "presentation_rect": [
-            8,
-            6,
-            200,
+            28,
+            7,
+            150,
             20
+          ],
+          "text": "SY.CORE LINK",
+          "textcolor": [
+            0.961,
+            0.961,
+            0.961,
+            1
           ]
         }
       },
       {
         "box": {
-          "id": "obj-info",
+          "fontface": 1,
+          "fontsize": 9,
+          "id": "obj-actl",
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
@@ -894,45 +1077,91 @@
           "patching_rect": [
             700,
             430,
-            79,
+            60,
             22
           ],
-          "text": "starting…",
           "presentation": 1,
           "presentation_rect": [
-            8,
-            30,
-            250,
+            214,
+            9,
+            34,
             18
+          ],
+          "text": "MIDI",
+          "textcolor": [
+            0.541,
+            0.561,
+            0.573,
+            1
           ]
         }
       },
       {
         "box": {
-          "id": "obj-stats",
-          "maxclass": "comment",
+          "id": "obj-ab",
+          "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 0,
-          "outlettype": [],
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            600,
+            460,
+            60,
+            22
+          ],
+          "text": "t b"
+        }
+      },
+      {
+        "box": {
+          "blinkcolor": [
+            0,
+            0.761,
+            1,
+            1
+          ],
+          "blinktime": 60,
+          "id": "obj-aled",
+          "ignoreclick": 1,
+          "maxclass": "led",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "offcolor": [
+            1,
+            1,
+            1,
+            0.06
+          ],
+          "oncolor": [
+            0,
+            0.761,
+            1,
+            1
+          ],
+          "outlettype": [
+            ""
+          ],
           "patching_rect": [
             700,
             460,
             60,
             22
           ],
-          "text": "–",
           "presentation": 1,
           "presentation_rect": [
-            8,
-            50,
-            250,
-            18
+            248,
+            12,
+            12,
+            12
           ]
         }
       },
       {
         "box": {
-          "id": "obj-chl",
+          "fontsize": 10,
+          "id": "obj-info",
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
@@ -940,22 +1169,29 @@
           "patching_rect": [
             700,
             490,
-            212,
+            79,
             22
           ],
-          "text": "Channel played on this track",
           "presentation": 1,
           "presentation_rect": [
-            76,
-            92,
-            190,
+            8,
+            32,
+            254,
             18
+          ],
+          "text": "starting…",
+          "textcolor": [
+            0.961,
+            0.961,
+            0.961,
+            1
           ]
         }
       },
       {
         "box": {
-          "id": "obj-hint",
+          "fontsize": 9,
+          "id": "obj-stats",
           "maxclass": "comment",
           "numinlets": 1,
           "numoutlets": 0,
@@ -963,23 +1199,246 @@
           "patching_rect": [
             700,
             520,
-            254,
+            60,
             22
           ],
-          "textcolor": [
-            0.6,
-            0.6,
-            0.6,
-            1
-          ],
-          "text": "Other tracks: SY.CORE Link Receive",
           "presentation": 1,
           "presentation_rect": [
             8,
-            120,
-            250,
+            52,
+            254,
             18
+          ],
+          "text": "–",
+          "textcolor": [
+            0.541,
+            0.561,
+            0.573,
+            1
           ]
+        }
+      },
+      {
+        "box": {
+          "fontface": 1,
+          "fontsize": 9,
+          "id": "obj-chl",
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            700,
+            550,
+            65,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            8,
+            90,
+            60,
+            18
+          ],
+          "text": "CHANNEL",
+          "textcolor": [
+            0.541,
+            0.561,
+            0.573,
+            1
+          ]
+        }
+      },
+      {
+        "box": {
+          "fontsize": 9,
+          "id": "obj-chd",
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            700,
+            580,
+            156,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            134,
+            90,
+            130,
+            18
+          ],
+          "text": "played on this track",
+          "textcolor": [
+            0.357,
+            0.384,
+            0.396,
+            1
+          ]
+        }
+      },
+      {
+        "box": {
+          "fontsize": 9,
+          "id": "obj-hint",
+          "maxclass": "comment",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            700,
+            610,
+            254,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            8,
+            146,
+            254,
+            18
+          ],
+          "text": "Other tracks: SY.CORE Link Receive",
+          "textcolor": [
+            0.357,
+            0.384,
+            0.396,
+            1
+          ]
+        }
+      },
+      {
+        "box": {
+          "angle": 270,
+          "bgcolor": [
+            0,
+            0.639,
+            0.439,
+            1
+          ],
+          "bgfillcolor_color": [
+            0,
+            0.639,
+            0.439,
+            1
+          ],
+          "bgfillcolor_type": "color",
+          "border": 0,
+          "id": "obj-bar",
+          "ignoreclick": 1,
+          "maxclass": "panel",
+          "mode": 0,
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            900,
+            50,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            0,
+            0,
+            270,
+            2
+          ],
+          "proportion": 0.39,
+          "rounded": 0,
+          "style": ""
+        }
+      },
+      {
+        "box": {
+          "angle": 270,
+          "bgcolor": [
+            1,
+            1,
+            1,
+            0.1
+          ],
+          "bgfillcolor_color": [
+            1,
+            1,
+            1,
+            0.1
+          ],
+          "bgfillcolor_type": "color",
+          "border": 0,
+          "id": "obj-div",
+          "ignoreclick": 1,
+          "maxclass": "panel",
+          "mode": 0,
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            900,
+            80,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            8,
+            76,
+            254,
+            1
+          ],
+          "proportion": 0.39,
+          "rounded": 0,
+          "style": ""
+        }
+      },
+      {
+        "box": {
+          "angle": 270,
+          "bgcolor": [
+            0.075,
+            0.075,
+            0.075,
+            1
+          ],
+          "bgfillcolor_color": [
+            0.075,
+            0.075,
+            0.075,
+            1
+          ],
+          "bgfillcolor_type": "color",
+          "border": 1,
+          "bordercolor": [
+            1,
+            1,
+            1,
+            0.1
+          ],
+          "id": "obj-bg",
+          "ignoreclick": 1,
+          "maxclass": "panel",
+          "mode": 0,
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            900,
+            20,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            0,
+            0,
+            270,
+            169
+          ],
+          "proportion": 0.39,
+          "rounded": 6,
+          "style": ""
         }
       }
     ],
@@ -1012,6 +1471,30 @@
         "patchline": {
           "source": [
             "obj-tb",
+            0
+          ],
+          "destination": [
+            "obj-tpath",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-tb",
+            0
+          ],
+          "destination": [
+            "obj-tdel",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-tdel",
             0
           ],
           "destination": [
@@ -1784,6 +2267,114 @@
           ],
           "destination": [
             "obj-stats",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            5
+          ],
+          "destination": [
+            "obj-ssel",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ssel",
+            0
+          ],
+          "destination": [
+            "obj-s0",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ssel",
+            1
+          ],
+          "destination": [
+            "obj-s1",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ssel",
+            2
+          ],
+          "destination": [
+            "obj-s2",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-s0",
+            0
+          ],
+          "destination": [
+            "obj-sled",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-s1",
+            0
+          ],
+          "destination": [
+            "obj-sled",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-s2",
+            0
+          ],
+          "destination": [
+            "obj-sled",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-fg",
+            0
+          ],
+          "destination": [
+            "obj-ab",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ab",
+            0
+          ],
+          "destination": [
+            "obj-aled",
             0
           ]
         }

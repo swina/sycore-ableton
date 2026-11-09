@@ -8,6 +8,16 @@
 import { writeFileSync } from 'node:fs';
 
 const SEND_NAME = 'sycore_link_midi';
+
+// SY.CORE's look (src/assets/main.css in sycore-refactor): dark panels, brand green, cyan accent,
+// bold uppercase titles, small muted uppercase labels. Max colors: [r, g, b, a] in 0–1.
+const hex = (h, a = 1) => [0, 2, 4].map(i => +(parseInt(h.slice(1 + i, 3 + i), 16) / 255).toFixed(3)).concat(a);
+const C = {
+  canvas: hex('#0a0a0a'), panel: hex('#131313'), border: hex('#ffffff', 0.1), line: hex('#ffffff', 0.06),
+  ink: hex('#f5f5f5'), muted: hex('#8a8f92'), dim: hex('#5b6265'),
+  brand: hex('#00A370'), brandSoft: hex('#33D6A8'), accent: hex('#00C2FF'), amber: hex('#F59E0B'), red: hex('#EF4444'),
+};
+const H = 169; // a Live device is 169 px tall
 const CHANNELS = ['All', ...Array.from({ length: 16 }, (_, i) => String(i + 1))];
 
 /** Box: [id, text, inlets, outlets, x, y, opts] — opts: kind (maxclass), p (presentation rect), extra box props. */
@@ -19,10 +29,14 @@ function build(B, L, { width }) {
       id: id(k), maxclass: kind, numinlets: ni, numoutlets: no, outlettype: Array(no).fill(''),
       patching_rect: [x, y, Math.max(60, String(text).length * 7 + 16), 22], ...extra,
     };
-    if (kind !== 'live.menu') box.text = text;
+    if (!['live.menu', 'live.numbox', 'led', 'panel'].includes(kind)) box.text = text;
     if (p) { box.presentation = 1; box.presentation_rect = p; }
-    return { box };
+    // Keys in alphabetical order, as Max saves them (a live.tab ignored its rows otherwise).
+    return { box: Object.fromEntries(Object.entries(box).sort(([a], [b]) => a.localeCompare(b))) };
   });
+  // Max draws its box list back to front (first box on top): panels go last, the background panel last of all.
+  const depth = b => (b.box.id === id('bg') ? 2 : b.box.maxclass === 'panel' ? 1 : 0);
+  boxes.sort((a, b) => depth(a) - depth(b));
   const lines = L.map(([s, so, d, di]) => ({ patchline: { source: [id(s), so], destination: [id(d), di] } }));
   return { patcher: {
     fileversion: 1, appversion: { major: 8, minor: 6, revision: 0, architecture: 'x64', modernui: 1 },
@@ -31,8 +45,24 @@ function build(B, L, { width }) {
   } };
 }
 
-const comment = (p, extra = {}) => ({ kind: 'comment', p, ...extra });
-const title = p => comment(p, { fontsize: 12, fontface: 1 });
+const comment = (p, extra = {}) => ({ kind: 'comment', p, textcolor: C.ink, fontsize: 10, ...extra });
+const title = p => comment(p, { fontsize: 12, fontface: 1, textcolor: C.ink });
+const label = (p, extra = {}) => comment(p, { fontsize: 9, fontface: 1, textcolor: C.muted, ...extra });
+const hint = p => comment(p, { fontsize: 9, textcolor: C.dim });
+// Panels as Ableton's own devices have them: not on the background layer (it did not show in
+// Live), but at the end of the box list (build() moves them there), so they are drawn under the rest.
+const panel = (p, { bgcolor, ...extra } = {}) => ({
+  kind: 'panel', p, ignoreclick: 1, mode: 0, angle: 270, proportion: 0.39, style: '',
+  bgcolor, bgfillcolor_type: 'color', bgfillcolor_color: bgcolor, ...extra,
+});
+const led = (p, oncolor) => ({ kind: 'led', p, oncolor, offcolor: C.line, blinkcolor: oncolor, blinktime: 60, ignoreclick: 1 });
+
+/** Background boxes: the dark panel, a thin brand line on top, a divider under the status lines. */
+const chrome = (width, dividerY) => [
+  ['bg', '', 1, 0, 900, 20, panel([0, 0, width, H], { bgcolor: C.panel, bordercolor: C.border, border: 1, rounded: 6 })],
+  ['bar', '', 1, 0, 900, 50, panel([0, 0, width, 2], { bgcolor: C.brand, border: 0, rounded: 0 })],
+  ['div', '', 1, 0, 900, 80, panel([8, dividerY, width - 16, 1], { bgcolor: C.border, border: 0, rounded: 0 })],
+];
 
 /** Channel menu (a Live parameter: saved with the set) + filter: a message passes when the menu is All or its channel. */
 const filterBoxes = (x, y, menuP) => [
@@ -42,12 +72,69 @@ const filterBoxes = (x, y, menuP) => [
   ['fg', 'gate 1 1', 2, 1, x, y + 90],
   ['menu', '', 1, 3, x + 330, y + 30, {
     kind: 'live.menu', p: menuP, parameter_enable: 1, varname: 'Channel',
+    bgcolor: C.canvas, textcolor: C.ink, tricolor: C.accent, bgfillcolor_color: C.canvas,
+    activebgcolor: C.canvas, activetextcolor: C.ink, fontsize: 10,
     saved_attribute_attributes: { valueof: {
       parameter_enum: CHANNELS, parameter_initial: [0], parameter_initial_enable: 1,
       parameter_longname: 'Channel', parameter_shortname: 'Channel', parameter_type: 2, parameter_mmax: 16,
     } },
   }],
 ];
+/** Receiver: the channel as a 2×8 grid of buttons 1–16 (no All; a live.tab will not wrap onto two
+ *  rows). The channel itself is a hidden int parameter 'MIDI Channel' (saved with the set; its own
+ *  name, so a set saved with the old menu, index 0 = All, does not restore a shifted channel).
+ *  Button k on → channel k; the channel → every button's state (set, no output): one lit at a time,
+ *  and clicking the lit one leaves it lit. */
+const channelGrid = (x, y, [gx, gy, gw, gh]) => {
+  const gap = 2, cw = (gw - 7 * gap) / 8, ch = (gh - gap) / 2;
+  const boxes = [
+    ['ft', 't l l', 1, 2, x, y],
+    ['fn', 'zl nth 1', 2, 2, x + 90, y + 30],
+    ['fx', 'expr $i2 == 0 || (($i1 & 15) + 1) == $i2', 2, 1, x + 90, y + 60],
+    ['fg', 'gate 1 1', 2, 1, x, y + 90],
+    ['chan', '', 1, 2, x + 330, y + 300, {
+      kind: 'live.numbox', parameter_enable: 1, varname: 'MIDI Channel',
+      saved_attribute_attributes: { valueof: {
+        parameter_initial: [1], parameter_initial_enable: 1, parameter_mmin: 1, parameter_mmax: 16,
+        parameter_longname: 'MIDI Channel', parameter_shortname: 'Channel', parameter_type: 1,
+      } },
+    }],
+    ['cdev', 'live.thisdevice', 1, 3, x + 330, y + 260],
+  ];
+  for (let k = 1; k <= 16; k++) {
+    const r = k > 8 ? 1 : 0, c = (k - 1) % 8;
+    const bx = x + 330 + (k - 1) * 40;
+    boxes.push(
+      ['b' + k, String(k), 1, 2, bx, y + 120, {
+        kind: 'live.text', p: [gx + c * (cw + gap), gy + r * (ch + gap), cw, ch], mode: 1, texton: String(k),
+        // A Live parameter as in Ableton's own devices (with parameter_enable 0 it did not react in
+        // Live), hidden: not automatable, not saved — the channel is saved by 'MIDI Channel'.
+        parameter_enable: 1, varname: 'Ch ' + k, fontsize: 9, rounded: 2,
+        saved_attribute_attributes: { valueof: {
+          parameter_enum: ['off', 'on'], parameter_mmax: 1, parameter_type: 2, parameter_invisible: 2,
+          parameter_longname: 'Ch ' + k, parameter_shortname: String(k),
+        } },
+        bgcolor: C.canvas, bgoncolor: C.brand, activebgcolor: C.canvas, activebgoncolor: C.brand,
+        textcolor: C.muted, textoncolor: hex('#000000'), activetextcolor: C.muted, activetextoncolor: hex('#000000'),
+        bordercolor: C.border, focusbordercolor: C.border,
+      }],
+      ['s' + k, 'sel 1', 2, 2, bx, y + 150],
+      ['m' + k, String(k), 2, 1, bx, y + 180, { kind: 'message' }],
+      ['e' + k, '== ' + k, 2, 1, bx, y + 360],
+      ['p' + k, 'prepend set', 1, 1, bx, y + 390],
+    );
+  }
+  return boxes;
+};
+const channelGridLines = [
+  ['ft', 1, 'fn', 0], ['fn', 0, 'fx', 0], ['chan', 0, 'fx', 1], ['fx', 0, 'fg', 0], ['ft', 0, 'fg', 1],
+  ['cdev', 0, 'chan', 0],
+  ...Array.from({ length: 16 }, (_, i) => i + 1).flatMap(k => [
+    ['b' + k, 0, 's' + k, 0], ['s' + k, 0, 'm' + k, 0], ['m' + k, 0, 'chan', 0],
+    ['chan', 0, 'e' + k, 0], ['e' + k, 0, 'p' + k, 0], ['p' + k, 0, 'b' + k, 0],
+  ]),
+];
+
 // t l l: right outlet first (channel → gate open/closed), then the message into the gate.
 const filterLines = [
   ['ft', 1, 'fn', 0], ['fn', 0, 'fx', 0], ['menu', 0, 'fx', 1], ['fx', 0, 'fg', 0], ['ft', 0, 'fg', 1],
@@ -66,6 +153,8 @@ const bridge = build([
   ['obD', 'live.observer signature_denominator', 2, 2, 770, 150],
   ['pak', 'pak 0 0. 0. 4 4', 5, 1, 30, 190],
   ['pre', 'prepend transport', 1, 1, 30, 220],
+  // The track name again once the script is up: the first one, at load, can arrive before it.
+  ['tdel', 'del 1500', 2, 1, 760, 20],
   ['tpath', 'path this_device canonical_parent', 2, 1, 600, 50, { kind: 'message' }],
   ['tlp', 'live.path', 1, 3, 600, 80],
   ['obName', 'live.observer name', 2, 2, 600, 110],
@@ -74,7 +163,7 @@ const bridge = build([
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
   // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
   ['node', `node.script ${(process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link')}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
-  ['route', 'route midi3 midi2 clear info stats', 1, 6, 30, 300],
+  ['route', 'route midi3 midi2 clear info stats state', 1, 7, 30, 300],
   // midi3 b1 b2 b3 beat → delay = (beat × resolution − ticks now) in ms, from Live's transport in Max
   ['t3', 't l b', 1, 2, 30, 330],
   ['tr3', 'transport', 2, 9, 120, 360],
@@ -90,20 +179,30 @@ const bridge = build([
   ['pk2', 'pack 0 0', 2, 1, 380, 480],
   ['tclr', 't clear clear', 1, 2, 330, 340],
   ['snd', `s ${SEND_NAME}`, 1, 0, 250, 520],
-  ...filterBoxes(30, 520, [10, 92, 60, 18]),
+  ...filterBoxes(30, 520, [66, 90, 62, 18]),
   // [iter]: raw bytes one at a time — the safe way into [midiout]
   ['iter', 'iter', 1, 1, 30, 650],
   ['out', 'midiout', 1, 0, 30, 680],
   ['pinfo', 'prepend set', 1, 1, 700, 300],
   ['pstats', 'prepend set', 1, 1, 850, 300],
   // UI (presentation)
-  ['ttl', 'SY.CORE Link', 1, 0, 700, 400, title([8, 6, 200, 20])],
-  ['info', 'starting…', 1, 0, 700, 430, comment([8, 30, 250, 18])],
-  ['stats', '–', 1, 0, 700, 460, comment([8, 50, 250, 18])],
-  ['chl', 'Channel played on this track', 1, 0, 700, 490, comment([76, 92, 190, 18])],
-  ['hint', 'Other tracks: SY.CORE Link Receive', 1, 0, 700, 520, comment([8, 120, 250, 18], { textcolor: [0.6, 0.6, 0.6, 1] })],
+  ...chrome(270, 76),
+  ['sled', '', 1, 1, 700, 360, led([10, 12, 12, 12], C.amber)],
+  ['ssel', 'sel 0 1 2', 1, 4, 850, 330],
+  ['s0', 'oncolor 0.961 0.62 0.043 1, 1', 2, 1, 850, 360, { kind: 'message' }],
+  ['s1', 'oncolor 0. 0.639 0.439 1, 1', 2, 1, 1050, 360, { kind: 'message' }],
+  ['s2', 'oncolor 0.937 0.267 0.267 1, 1', 2, 1, 1250, 360, { kind: 'message' }],
+  ['ttl', 'SY.CORE LINK', 1, 0, 700, 400, title([28, 7, 150, 20])],
+  ['actl', 'MIDI', 1, 0, 700, 430, label([214, 9, 34, 18])],
+  ['ab', 't b', 1, 1, 600, 460],
+  ['aled', '', 1, 1, 700, 460, led([248, 12, 12, 12], C.accent)],
+  ['info', 'starting…', 1, 0, 700, 490, comment([8, 32, 254, 18])],
+  ['stats', '–', 1, 0, 700, 520, comment([8, 52, 254, 18], { textcolor: C.muted, fontsize: 9 })],
+  ['chl', 'CHANNEL', 1, 0, 700, 550, label([8, 90, 60, 18])],
+  ['chd', 'played on this track', 1, 0, 700, 580, hint([134, 90, 130, 18])],
+  ['hint', 'Other tracks: SY.CORE Link Receive', 1, 0, 700, 610, hint([8, 146, 254, 18])],
 ], [
-  ['dev', 0, 'tb', 0], ['tb', 1, 'path', 0], ['tb', 0, 'tpath', 0], ['path', 0, 'lp', 0],
+  ['dev', 0, 'tb', 0], ['tb', 1, 'path', 0], ['tb', 0, 'tpath', 0], ['tb', 0, 'tdel', 0], ['tdel', 0, 'tpath', 0], ['path', 0, 'lp', 0],
   ['lp', 0, 'obP', 1], ['lp', 0, 'obB', 1], ['lp', 0, 'obT', 1], ['lp', 0, 'obN', 1], ['lp', 0, 'obD', 1],
   ['obP', 0, 'pak', 0], ['obB', 0, 'pak', 1], ['obT', 0, 'pak', 2], ['obN', 0, 'pak', 3], ['obD', 0, 'pak', 4],
   ['pak', 0, 'pre', 0], ['pre', 0, 'node', 0],
@@ -124,20 +223,27 @@ const bridge = build([
   ['route', 2, 'tclr', 0], ['tclr', 0, 'pipe3', 0], ['tclr', 1, 'pipe2', 0],
   ['route', 3, 'pinfo', 0], ['pinfo', 0, 'info', 0],
   ['route', 4, 'pstats', 0], ['pstats', 0, 'stats', 0],
+  ['route', 5, 'ssel', 0], ['ssel', 0, 's0', 0], ['ssel', 1, 's1', 0], ['ssel', 2, 's2', 0],
+  ['s0', 0, 'sled', 0], ['s1', 0, 'sled', 0], ['s2', 0, 'sled', 0],
+  ['fg', 0, 'ab', 0], ['ab', 0, 'aled', 0],
 ], { width: 270 });
 
 // ── Receiver ────────────────────────────────────────────────────────────────
 const receiver = build([
   ['rcv', `r ${SEND_NAME}`, 1, 1, 30, 20],
-  ...filterBoxes(30, 60, [10, 34, 60, 18]),
+  ...channelGrid(30, 60, [8, 78, 194, 42]),
   ['iter', 'iter', 1, 1, 30, 190],
   ['out', 'midiout', 1, 0, 30, 220],
-  ['ttl', 'SY.CORE Link Receive', 1, 0, 400, 20, title([8, 6, 200, 20])],
-  ['chl', 'Channel', 1, 0, 400, 50, comment([76, 34, 80, 18])],
-  ['hint', 'Needs the SY.CORE Link device on a track of this set', 1, 0, 400, 80,
-    comment([8, 60, 190, 32], { textcolor: [0.6, 0.6, 0.6, 1] })],
+  ...chrome(210, 52),
+  ['ttl', 'SY.CORE LINK', 1, 0, 400, 20, title([8, 7, 150, 20])],
+  ['sub', 'RECEIVE', 1, 0, 400, 50, label([8, 27, 80, 18], { textcolor: C.accent })],
+  ['actl', 'MIDI', 1, 0, 400, 80, label([154, 9, 34, 18])],
+  ['ab', 't b', 1, 1, 300, 110],
+  ['aled', '', 1, 1, 400, 110, led([188, 12, 12, 12], C.accent)],
+  ['chl', 'CHANNEL', 1, 0, 400, 140, label([8, 58, 60, 18])],
+  ['hint', 'Needs SY.CORE Link in this set', 1, 0, 400, 170, hint([8, 146, 194, 18])],
 ], [
-  ['rcv', 0, 'ft', 0], ...filterLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0],
+  ['rcv', 0, 'ft', 0], ...channelGridLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0], ['fg', 0, 'ab', 0], ['ab', 0, 'aled', 0],
 ], { width: 210 });
 
 for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver]]) {

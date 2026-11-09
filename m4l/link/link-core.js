@@ -181,6 +181,11 @@ function infoText({ clients = 0, port, error = null, track = '' }) {
   return `${clients === 1 ? 'SY.CORE connected' : `${clients} SY.CORE clients`}${where}`;
 }
 
+/** Device status LED: 0 waiting for SY.CORE, 1 connected, 2 error (port in use…). */
+function infoState({ clients = 0, error = null }) {
+  return error ? 2 : clients ? 1 : 0;
+}
+
 /** Device stats line from a `stats` message (null: nothing arrived in the last second). */
 function statsText(s) {
   if (!s) return 'idle';
@@ -199,4 +204,4 @@ function parseMessage(text) {
   return { msg: m };
 }
 
-module.exports = { PROTOCOL_VERSION, infoText, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };

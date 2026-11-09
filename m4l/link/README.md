@@ -18,7 +18,7 @@ Lo spike e questo device usano la stessa porta: tienine attivo uno solo.
 `node make-patch.mjs && node make-amxd.mjs` → `sycore-link.amxd`: un Max MIDI Effect già fatto, da trascinare su una traccia MIDI di Live (niente editor). Lo script va tenuto in `C:/Users/swina/Documents/sycore-link/` (percorso completo nella patch).
 
 ## Più tracce: SY.CORE Link Receive
-`sycore-link-receive.amxd` (MIDI Effect): mettilo sulle altre tracce MIDI e scegli **Channel**. Riceve dal device `sycore-link` del set (uno solo, su una traccia qualsiasi) i messaggi già messi a tempo e fa passare solo quel canale (o **All**). Anche `sycore-link` ha il suo **Channel** per la propria traccia (All = tutto, come prima).
+`sycore-link-receive.amxd` (MIDI Effect): mettilo sulle altre tracce MIDI e scegli il canale nella griglia 1–16. Riceve dal device `sycore-link` del set (uno solo, su una traccia qualsiasi) i messaggi già messi a tempo e fa passare solo quel canale. Anche `sycore-link` ha il suo **Channel** per la propria traccia (All = tutto, come prima).
 
 In SY.CORE ogni app va su **Live (M4L)** in MIDI Flow con il suo canale (OUT CH del cavo), per esempio:
 
