@@ -107,8 +107,9 @@
           "id": "obj-rs",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 17,
+          "numoutlets": 18,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -130,10 +131,10 @@
           "patching_rect": [
             30,
             270,
-            317,
+            338,
             22
           ],
-          "text": "route 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"
+          "text": "route 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16"
         }
       },
       {
@@ -977,6 +978,59 @@
           "outlettype": [],
           "patching_rect": [
             1680,
+            370,
+            100,
+            22
+          ],
+          "text": "live.remote~"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ri16",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": [
+            "",
+            ""
+          ],
+          "patching_rect": [
+            1790,
+            300,
+            72,
+            22
+          ],
+          "text": "route id"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-pi16",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1790,
+            330,
+            86,
+            22
+          ],
+          "text": "prepend id"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-lr16",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            1790,
             370,
             100,
             22
@@ -2119,6 +2173,54 @@
           ],
           "destination": [
             "obj-lr15",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-rs",
+            16
+          ],
+          "destination": [
+            "obj-ri16",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ri16",
+            0
+          ],
+          "destination": [
+            "obj-pi16",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-pi16",
+            0
+          ],
+          "destination": [
+            "obj-lr16",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ri16",
+            1
+          ],
+          "destination": [
+            "obj-lr16",
             0
           ]
         }

@@ -321,9 +321,9 @@ const rig = build([
 // [jsui sycore-map-view.js] the 16 slots drawn (a reload of the view loses nothing); each slot moves its
 // parameter through a [live.remote~]. Follow: the selected track.
 // The track's MIDI passes through (the device can sit on an instrument track too).
-const MAP_W = 470, SLOTS = 16;
+const MAP_W = 470, SLOTS = 16, REMOTES = SLOTS + 1; // the 17th: the Macro scan (sycore-map.js)
 const mapSlots = [], mapLines = [];
-for (let s = 0; s < SLOTS; s++) {
+for (let s = 0; s < REMOTES; s++) {
   const x = 30 + s * 110;
   mapSlots.push(['ri' + s, 'route id', 1, 2, x, 300], ['pi' + s, 'prepend id', 1, 1, x, 330], ['lr' + s, 'live.remote~', 2, 0, x, 370]);
   mapLines.push(['rs', s, 'ri' + s, 0], ['ri' + s, 0, 'pi' + s, 0], ['pi' + s, 0, 'lr' + s, 1], ['ri' + s, 1, 'lr' + s, 0]);
@@ -333,7 +333,7 @@ const map = build([
   ['mr', `r ${MAP_OUT}`, 1, 1, 200, 20],
   ['logic', `js ${LINK_DIR}/sycore-map.js`, 1, 3, 30, 90],
   ['view', '', 1, 1, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map-view.js`, border: 0, patching_rect: [500, 120, 440, 134] }],
-  ['rs', 'route ' + Array.from({ length: SLOTS }, (_, i) => i).join(' '), 1, SLOTS + 1, 30, 270],
+  ['rs', 'route ' + Array.from({ length: REMOTES }, (_, i) => i).join(' '), 1, REMOTES + 1, 30, 270],
   ...mapSlots,
   // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
   ['rf', 'route followtoggle', 1, 2, 500, 270],
