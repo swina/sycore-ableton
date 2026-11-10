@@ -27,7 +27,9 @@ var current = { track: '', device: '', cls: '', params: [] };
 function clean(v) { return String(v instanceof Array ? v.join(' ') : v).replace(/^"(.*)"$/, '$1'); }
 function ids(list) { var r = []; for (var i = 0; i + 1 < list.length; i += 2) if (list[i] === 'id' && +list[i + 1]) r.push(+list[i + 1]); return r; }
 function api(id) { return new LiveAPI(null, 'id ' + id); }
-function info(t) { outlet(1, 'info', t); }
+// also in the Max console: the device is out of sight while another track is selected
+function info(t) { outlet(1, 'info', t); post('map spike: ' + t + '\n'); }
+function timing(t) { outlet(1, 'time', t); post('map spike:   ' + t + '\n'); }
 
 function bang() {
   ready = 1;
@@ -74,7 +76,7 @@ function target(trackId) {
   // instrument stays the target, so the device can still be used.
   if (!found) {
     info(tname + ': no instrument' + (current.device ? ' — still on ' + current.track + ' › ' + current.device : ''));
-    outlet(1, 'time', 'read ' + (t1 - t0) + ' ms');
+    timing('read ' + (t1 - t0) + ' ms');
     return;
   }
   current = { track: tname, device: '', cls: '', params: [] };
@@ -102,7 +104,7 @@ function target(trackId) {
   var t3 = Date.now();
   info(tname + ' › ' + (found.rack ? found.rack + ' › ' : '') + current.device + ' (' + current.cls + ') · ' +
     matched + '/' + SLOTS + (table ? ' by table' : ' first params'));
-  outlet(1, 'time', 'devices ' + (t1 - t0) + ' ms · ' + pids.length + ' params ' + (t2 - t1) + ' ms · remotes ' + (t3 - t2) + ' ms · total ' + (t3 - t0) + ' ms');
+  timing('devices ' + (t1 - t0) + ' ms · ' + pids.length + ' params ' + (t2 - t1) + ' ms · remotes ' + (t3 - t2) + ' ms · total ' + (t3 - t0) + ' ms');
   if (table) for (var m = 0; m < SLOTS; m++) if (!slots[m]) post('map spike: no "' + table[m] + '" in ' + current.cls + '\n');
 }
 
