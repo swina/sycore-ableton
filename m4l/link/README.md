@@ -48,3 +48,6 @@ Disposizione per registrare (verificata in Live):
 
 Le note escono dal Receive (Post FX), quindi la traccia che registra le prende già filtrate per canale e messe a tempo.
 
+## SY.CORE Map (P12)
+`sycore-map.amxd` (MIDI Effect, **uno per set**, su una traccia qualsiasi; il MIDI della traccia passa): comanda lo strumento di una traccia **a tabella** — slot *n* → un parametro dello strumento, per `original_name`. **FOLLOW** segue la traccia selezionata in Live; spento (**LOCK**) resta sullo strumento attuale. Una traccia senza strumento (anche quella del device) lascia l'ultimo. Un **Rack con Macro mappate** → le sue 16 Macro (con le etichette); un Rack senza → il primo strumento nelle sue catene. Tabelle di fabbrica dentro il device per Drift, Analog, Simpler (quelle di SY.CORE le sostituiscono); senza tabella: *NO TABLE*. I 16 slot mostrano nome e valore; **trascina** uno slot in su / giù per muoverlo. Parla con il bridge `sycore-link` (1.2.0) dentro Max: le tabelle e gli encoder da SY.CORE, lo strumento e i valori verso SY.CORE. Script: `sycore-map.js` (`jsui`, Live API) in questa cartella.
+

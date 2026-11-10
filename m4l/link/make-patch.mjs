@@ -4,6 +4,7 @@
 //   sycore-link.maxpat          the bridge (one per Live set): WebSocket server, Live's transport, timed MIDI
 //   sycore-link-receive.maxpat  a receiver for other tracks: the bridge's MIDI on one channel (or all)
 //   sycore-rig.maxpat           SY.CORE's Rig Controller slot grid in Live (in the device, and a floating window)
+//   sycore-map.maxpat           SY.CORE Map (P12): the instrument of a track driven by table (one per set)
 // Every MIDI message the bridge plays is also sent to [s sycore_link_midi] (global across the
 // Live set's devices), so each receiver on its own track picks its channel: Drum ch 10 → Drum Rack, etc.
 import { writeFileSync } from 'node:fs';
@@ -315,7 +316,51 @@ const rig = build([
   ['omsg', 0, 'pc', 0], ['pc', 0, 'win', 0], ['omsg', 0, 'ofs', 0],
 ], { width: RIG_W });
 
-for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver], ['sycore-rig.maxpat', rig]]) {
+// ── Map (P12) ───────────────────────────────────────────────────────────────
+// One device in the set drives the instrument of a track by table ([jsui] sycore-map.js: Live API and the
+// 16 slots drawn); each slot moves its parameter through a [live.remote~]. Follow: the selected track.
+// The track's MIDI passes through (the device can sit on an instrument track too).
+const MAP_W = 470, SLOTS = 16;
+const mapSlots = [], mapLines = [];
+for (let s = 0; s < SLOTS; s++) {
+  const x = 30 + s * 110;
+  mapSlots.push(['ri' + s, 'route id', 1, 2, x, 300], ['pi' + s, 'prepend id', 1, 1, x, 330], ['lr' + s, 'live.remote~', 2, 0, x, 370]);
+  mapLines.push(['rs', s, 'ri' + s, 0], ['ri' + s, 0, 'pi' + s, 0], ['pi' + s, 0, 'lr' + s, 1], ['ri' + s, 1, 'lr' + s, 0]);
+}
+const map = build([
+  ['dev', 'live.thisdevice', 1, 3, 30, 20],
+  ['mr', `r ${MAP_OUT}`, 1, 1, 200, 20],
+  ['view', '', 1, 2, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map.js`, border: 0, patching_rect: [30, 120, 440, 134] }],
+  ['rs', 'route ' + Array.from({ length: SLOTS }, (_, i) => i).join(' '), 1, SLOTS + 1, 30, 270],
+  ...mapSlots,
+  // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
+  ['rf', 'route followtoggle', 1, 2, 500, 270],
+  ['fset', 'prepend set', 1, 1, 500, 300],
+  ['ms', `s ${MAP_IN}`, 1, 0, 620, 300],
+  ['fol', 'LOCK', 1, 1, 500, 20, {
+    kind: 'live.text', p: [MAP_W - 64, 6, 56, 17], mode: 1, text: 'LOCK', texton: 'FOLLOW',
+    parameter_enable: 1, varname: 'Follow', fontsize: 9, rounded: 2,
+    saved_attribute_attributes: { valueof: {
+      parameter_enum: ['off', 'on'], parameter_mmax: 1, parameter_type: 2, parameter_initial_enable: 1, parameter_initial: [1],
+      parameter_longname: 'Follow selected track', parameter_shortname: 'Follow',
+    } },
+    bgcolor: C.canvas, bgoncolor: C.brand, activebgcolor: C.canvas, activebgoncolor: C.brand,
+    textcolor: C.ink, textoncolor: hex('#000000'), activetextcolor: C.ink, activetextoncolor: hex('#000000'),
+    bordercolor: C.border, focusbordercolor: C.border,
+  }],
+  ['fp', 'prepend follow', 1, 1, 500, 60],
+  ['mi', 'midiin', 1, 1, 800, 20], ['mo', 'midiout', 1, 0, 800, 60],
+  ...chrome(MAP_W, 25).filter(b => b[0] !== 'div'),
+  ['ttl', 'SY.CORE MAP', 1, 0, 600, 20, title([10, 5, 120, 20])],
+], [
+  ['dev', 0, 'view', 0], ['mr', 0, 'view', 0],
+  ['view', 0, 'rs', 0], ...mapLines,
+  ['view', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'ms', 0],
+  ['fol', 0, 'fp', 0], ['fp', 0, 'view', 0],
+  ['mi', 0, 'mo', 0],
+], { width: MAP_W });
+
+for (const [file, p] of [['sycore-link.maxpat', bridge], ['sycore-link-receive.maxpat', receiver], ['sycore-rig.maxpat', rig], ['sycore-map.maxpat', map]]) {
   writeFileSync(new URL('./' + file, import.meta.url), JSON.stringify(p, null, 2));
   console.log('wrote', file, p.patcher.boxes.length, 'boxes,', p.patcher.lines.length, 'lines');
 }
