@@ -82,7 +82,7 @@ function start() {
 var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
-var DEBUG = 1;
+var DEBUG = 0;   // 1: each selection and target in the Max console
 function onSelected(args) {
   if (DEBUG) post('sycore-map: selected ' + (args ? args.join(' ') : '?') + (following ? '' : ' (lock)') + '\n');
   if (!following || !args || args[0] !== 'selected_track') return;
@@ -123,13 +123,39 @@ function findInstrument(devIds, depth) {
   return null;
 }
 /** The device's class, name and parameter ids by original_name — read once, then cached. */
+// Reading every parameter's name is the slow part (~3 ms each: Analog's 172 ≈ 500 ms). A class's
+// parameters are always in the same order, so their positions are learnt once per class (classIndex)
+// and another device of that class only checks the names of the parameters it uses.
+var classIndex = {};   // class_name → { original_name: position }
 function deviceInfo(devId) {
   if (cache[devId]) return cache[devId];
-  var pids = ids(get(devId, 'parameters')), byName = {}, list = [];
-  for (var i = 0; i < pids.length; i++) { var n = clean(get(pids[i], 'original_name')); list.push(n); if (!(n in byName)) byName[n] = pids[i]; }
-  var c = { cls: clean(get(devId, 'class_name')), name: clean(get(devId, 'name')), byName: byName, pids: pids, names: list };
+  var c = { cls: clean(get(devId, 'class_name')), name: clean(get(devId, 'name')), pids: ids(get(devId, 'parameters')), byName: null, names: null };
   cache[devId] = c;
   return c;
+}
+/** Every parameter's name (once per device; teaches the class its positions). */
+function readAll(c) {
+  if (c.names) return;
+  var idx = {};
+  c.names = []; c.byName = {};
+  for (var i = 0; i < c.pids.length; i++) {
+    var n = clean(get(c.pids[i], 'original_name'));
+    c.names.push(n);
+    if (!(n in c.byName)) { c.byName[n] = c.pids[i]; idx[n] = i; }
+  }
+  classIndex[c.cls] = idx;
+}
+/** The id of a device's parameter by original_name: by its class's position (checked), else read all. */
+function paramId(c, name) {
+  if (c.byName) return c.byName[name];
+  var idx = classIndex[c.cls];
+  if (idx) {
+    if (!(name in idx)) return undefined;
+    var pid = c.pids[idx[name]];
+    if (pid && clean(get(pid, 'original_name')) === name) return pid;
+  }
+  readAll(c);
+  return c.byName[name];
 }
 function slotFor(pid, def) {
   var min = num(pid, 'min'), max = num(pid, 'max');
@@ -155,6 +181,7 @@ function goTarget(trackId) {
   var tname = clean(get(trackId, 'name'));
   if (!found) {                                   // keep the last instrument (this device's own track…)
     T.note = tname + ': no instrument';
+    post('sycore-map: ' + tname + ': no instrument' + (T.devId ? ' — still on ' + T.track + ' > ' + T.device : '') + '\n');
     sendView();
     return;
   }
@@ -165,12 +192,12 @@ function goTarget(trackId) {
     for (var c = 0; c < SLOTS; c++) slots.push(sc.slots[c] ? copy(sc.slots[c]) : null);
   } else if (found.macros) {
     mode = 'macros';
-    for (var m = 0; m < SLOTS; m++) { var mp = info.byName['Macro ' + (m + 1)]; slots.push(mp ? slotFor(mp, { param: 'Macro ' + (m + 1) }) : null); }
+    for (var m = 0; m < SLOTS; m++) { var mp = paramId(info, 'Macro ' + (m + 1)); slots.push(mp ? slotFor(mp, { param: 'Macro ' + (m + 1) }) : null); }
   } else {
     var table = tableSet[info.cls];
     mode = table ? 'table' : 'none';
     for (var s = 0; s < SLOTS; s++) {
-      var def = table && table[s], pid = def && info.byName[def.param];
+      var def = table && table[s], pid = def && paramId(info, def.param);
       slots.push(pid ? slotFor(pid, def) : null);
     }
   }
@@ -285,6 +312,7 @@ function setFollow(v) {
 function sendParams() {
   if (!T.devId) return;
   var info = deviceInfo(T.devId), out = [];
+  readAll(info);
   for (var i = 0; i < info.pids.length; i++) {
     var pid = info.pids[i];
     out.push({ name: info.names[i], shown: clean(get(pid, 'name')), min: num(pid, 'min'), max: num(pid, 'max'), q: num(pid, 'is_quantized') });
