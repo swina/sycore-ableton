@@ -82,7 +82,9 @@ function start() {
 var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
+var DEBUG = 1;
 function onSelected(args) {
+  if (DEBUG) post('sycore-map: selected ' + (args ? args.join(' ') : '?') + (following ? '' : ' (lock)') + '\n');
   if (!following || !args || args[0] !== 'selected_track') return;
   var id = +args[2];
   if (!id || id === T.trackId) return;
@@ -145,6 +147,7 @@ function norm(s, x) { return s.max > s.min ? Math.max(0, Math.min(1, (x - s.min)
 var foundCache = {};   // track id → { key: its device ids, found }: the instrument search skipped while the devices stay
 var slotCache = {};    // device id → its 16 slots (name, range…), values apart
 function goTarget(trackId) {
+  if (DEBUG) post('sycore-map: target ' + trackId + '\n');
   var t0 = Date.now();
   var devs = ids(get(trackId, 'devices')), key = devs.join(','), fc = foundCache[trackId];
   var found = fc && fc.key === key ? fc.found : findInstrument(devs, 0);
