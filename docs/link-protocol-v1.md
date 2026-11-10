@@ -49,13 +49,13 @@ One **SY.CORE Map** device in the set drives the instrument of a track — the s
 
 | From | Type | Fields |
 |---|---|---|
-| client | `map-tables` | `tables`: `{ <class_name>: [16 slots] }` — a slot is `{ param, min?, max?, int? }` (`param` = the parameter's `original_name`, `min` / `max` in its own units, default its full range; `int` = whole numbers) or `null`; class names `[A-Za-z0-9_]`, at most 64 |
+| client | `map-tables` | `tables`: `{ <class_name>: [16 slots] }` — a slot is `{ param, min?, max?, int? }` (`param` = the parameter's `original_name`, `min` / `max` in its own units, default its full range; `int` = whole numbers) or `null`; class names `[A-Za-z0-9_]` — for Max for Live devices and plugins (`MxDeviceInstrument`, `PluginDevice`, `AuPluginDevice`) `class:device name`, e.g. `MxDeviceInstrument:Cheese Grater` — at most 64 |
 | client | `map` | `slot` (0–15), `value` (0–1, clamped): a slot moved |
 | client | `map-target` | `follow: true`, or `track` (index from 0) |
 | client | `map-params-request` | — (answered with `map-params`) |
 | client | `map-variation` | `index` (0–127), or `step` (1 next, -1 previous, wrapping): recall a Macro Variation of the Rack in focus |
 | client | `map-randomize` | — : randomize the Rack's Macros |
-| device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `none`), `slots` (16: `{ param, name, value 0–1 }` or null), `variations` (`count`, `selected` -1 = none; null when no Rack) — on each change of target or variation |
+| device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `auto` = no table: the instrument's first 16 parameters, `none`), `slots` (16: `{ param, name, value 0–1 }` or null), `variations` (`count`, `selected` -1 = none; null when no Rack) — on each change of target or variation |
 | device | `map-value` | `slot`, `value` (0–1): a slot's parameter moved in Live (mouse, automation, preset) |
 | device | `map-tracks` | `tracks`: `[{ index, name, instrument }]` (`instrument`: its first instrument's name, '' = none) |
 | device | `map-params` | `cls`, `name`, `params`: `[{ name (original_name), shown, min, max, quantized }]` (at most 512) |

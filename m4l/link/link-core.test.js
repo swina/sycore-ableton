@@ -149,9 +149,10 @@ test('map: tables by class_name, slots clamped to 16, bad classes and slots drop
   const t = parseMapTables({ type: 'map-tables', tables: {
     Drift: [{ param: 'LP Freq' }, { param: 'Volume', min: 0, max: '0.8' }, null, { param: 'Osc 1 Oct', int: true }, {}],
     'bad name!': [{ param: 'x' }],
+    'MxDeviceInstrument:Cheese Grater': [{ param: 'Grain' }],
     Simpler: 'nope',
   } });
-  assert.deepEqual(Object.keys(t), ['Drift']);
+  assert.deepEqual(Object.keys(t), ['Drift', 'MxDeviceInstrument:Cheese Grater']);
   assert.equal(t.Drift.length, 16);
   assert.deepEqual(t.Drift.slice(0, 5), [{ param: 'LP Freq' }, { param: 'Volume', min: 0, max: 0.8 }, null, { param: 'Osc 1 Oct', int: 1 }, null]);
 });
@@ -181,6 +182,7 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.equal(info.slots[1], null);
   assert.deepEqual(info.slots[2], { param: 'Macro 1', name: 'Filter Cutoff', value: 1 });
   assert.equal(mapInfoFromDevice('{"mode":"mixed"}').mode, 'mixed');
+  assert.equal(mapInfoFromDevice('{"mode":"auto"}').mode, 'auto');
   assert.deepEqual(mapInfoFromDevice('{"variations":{"count":8,"selected":2}}').variations, { count: 8, selected: 2 });
   assert.equal(mapInfoFromDevice('{}').variations, null);
   const { parseMapVariation } = require('./link-core');

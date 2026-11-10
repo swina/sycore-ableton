@@ -246,7 +246,8 @@ const MAP_PARAMS = 512;
 const text = (v, n = 64) => String(v == null ? '' : v).slice(0, n);
 const finite = v => (v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined);
 const clamp01 = v => Math.max(0, Math.min(1, Number(v) || 0));
-const CLASS_RE = /^[A-Za-z0-9_]{1,64}$/;
+// a class, or class:device name for Max for Live devices and plugins ("MxDeviceInstrument:Cheese Grater")
+const CLASS_RE = /^[A-Za-z0-9_]{1,64}(:[^\u0000-\u001f]{1,64})?$/;
 
 /** A table slot: { param (original_name), min?, max? (the parameter's units), int? } or null (empty). */
 function mapSlot(x) {
@@ -301,7 +302,7 @@ function mapInfoFromDevice(t) {
   const tr = o.track && typeof o.track === 'object' ? { index: int(o.track.index, -1, 999, -1), name: text(o.track.name, 128) } : null;
   const dv = o.device && typeof o.device === 'object'
     ? { name: text(o.device.name, 128), cls: text(o.device.cls), rack: o.device.rack ? text(o.device.rack, 128) : null } : null;
-  const mode = ['table', 'macros', 'mixed', 'none'].includes(o.mode) ? o.mode : 'none';
+  const mode = ['table', 'macros', 'mixed', 'auto', 'none'].includes(o.mode) ? o.mode : 'none';
   const slots = Array.from({ length: MAP_SLOTS }, (_, i) => {
     const x = Array.isArray(o.slots) ? o.slots[i] : null;
     return x && typeof x === 'object' ? { param: text(x.param), name: text(x.name || x.param), value: clamp01(x.value) } : null;

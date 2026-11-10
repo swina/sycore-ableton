@@ -193,6 +193,23 @@ function rackMacros(rackId) {
   }
   return out;
 }
+// Max for Live instruments and plugins all share one class (MxDeviceInstrument, PluginDevice,
+// AuPluginDevice): their tables are kept by class and device name ("MxDeviceInstrument:Cheese Grater").
+var NAMED_CLASSES = { MxDeviceInstrument: 1, PluginDevice: 1, AuPluginDevice: 1 };
+function tableKey(info) { return NAMED_CLASSES[info.cls] ? info.cls + ':' + info.name : info.cls; }
+/** No table (a Max for Live device, a plugin, an instrument not in the tables): its first 16 parameters,
+ *  "Device On" and the ones a Macro holds left out — usually the device's main controls, in its order. */
+function autoSlots(info) {
+  var out = [];
+  for (var i = 0; i < info.pids.length && out.length < SLOTS; i++) {
+    var pid = info.pids[i];
+    if (num(pid, 'state') === 2) continue;
+    var on = clean(get(pid, 'original_name'));
+    if (on === 'Device On') continue;
+    out.push(slotFor(pid, { param: on }));
+  }
+  return out;
+}
 /** The table's slots of an instrument, skipping the parameters a Macro holds (state 2: disabled) and
  *  those in `skip`, at most `room`. */
 function tableSlots(info, table, room) {
@@ -223,7 +240,7 @@ function goTarget(trackId) {
     return;
   }
   var inst = found.id !== found.rackId ? found.id : 0;          // the instrument (0: an empty Rack)
-  var info = deviceInfo(found.id), table = inst ? tableSet[info.cls] : null;
+  var info = deviceInfo(found.id), table = inst ? tableSet[tableKey(info)] : null;
   var ck = (found.macros ? 'r' + found.rackId + ':' : '') + found.id, sc = slotCache[ck];
   var slots, mode, nMacros = 0;
   if (sc) { mode = sc.mode; nMacros = sc.nMacros; slots = sc.slots.map(function (x) { return x ? copy(x) : null; }); }
@@ -231,7 +248,9 @@ function goTarget(trackId) {
     slots = found.macros ? rackMacros(found.rackId) : [];
     nMacros = slots.length;
     if (table) slots = slots.concat(tableSlots(info, table, SLOTS - slots.length));
-    mode = !slots.length ? 'none' : nMacros === slots.length ? 'macros' : nMacros ? 'mixed' : 'table';
+    var auto = 0;
+    if (!table && inst && !nMacros) { slots = autoSlots(info); auto = 1; }     // no table: its first 16 parameters
+    mode = !slots.length ? 'none' : auto ? 'auto' : nMacros === slots.length ? 'macros' : nMacros ? 'mixed' : 'table';
     while (slots.length < SLOTS) slots.push(null);
     slotCache[ck] = { mode: mode, nMacros: nMacros, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   }
@@ -244,7 +263,7 @@ function goTarget(trackId) {
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
   post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + (inst ? info.name + ' (' + info.cls + ')' : '(Rack)') +
-    ' · ' + (nMacros ? nMacros + ' Macros + ' : '') + (n - nMacros) + ' from the table · ' + T.ms + ' ms\n');
+    ' · ' + (mode === 'auto' ? n + ' first parameters (no table: ' + tableKey(info) + ')' : (nMacros ? nMacros + ' Macros + ' : '') + (n - nMacros) + ' from the table') + ' · ' + T.ms + ' ms\n');
   sendInfo();
   sendView();
 }
@@ -360,7 +379,7 @@ flush.repeat();
 function sendView() {
   var head = !T.devId ? (ready ? 'Select a track with an instrument' : 'Starting…')
     : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
-  var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'mixed' ? T.nMacros + ' MACROS + ' + T.cls
+  var tag = T.note || (T.mode === 'auto' ? 'AUTO · ' + T.cls : T.mode === 'macros' ? 'MACROS' : T.mode === 'mixed' ? T.nMacros + ' MACROS + ' + T.cls
     : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + (T.cls || 'Rack') : '');
   if (!T.note && T.rackId && T.varCount) tag = 'VAR ' + (T.varSel >= 0 ? T.varSel + 1 : '–') + '/' + T.varCount + ' · ' + tag;
   outlet(2, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
@@ -404,6 +423,6 @@ function sendParams() {
     var pid = info.pids[i];
     out.push({ name: info.names[i], shown: clean(get(pid, 'name')), min: num(pid, 'min'), max: num(pid, 'max'), q: num(pid, 'is_quantized') });
   }
-  toBridge('mapparams', JSON.stringify({ cls: info.cls, name: info.name, params: out }));
+  toBridge('mapparams', JSON.stringify({ cls: tableKey(info), name: info.name, params: out }));
 }
 
