@@ -1,20 +1,20 @@
-// sycore-map.js — the SY.CORE Map device ([jsui], Max JS / ES5; P12): one device in the set drives
+// sycore-map.js — the SY.CORE Map device's logic ([js], Max JS / ES5; P12; drawn by sycore-map-view.js): one device in the set drives
 // the instrument of a track by table — slot n (an encoder in SY.CORE) → a parameter, by original_name.
 //   Target: the track selected in Live (Follow) or the one SY.CORE picks; a track without an instrument
 //   (e.g. this device's own) keeps the last one. On the track, the first instrument; a Rack with mapped
 //   Macros → its 16 Macros; a Rack without → the first instrument in its chains.
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
+//        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params"
 //   out 0: "<slot> id <param id>" (re-point a live.remote~, id 0 = released) / "<slot> <value>" (parameter units)
-//   out 1: "askready" (→ live.thisdevice: bang back when the Live API is ready); to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
+//   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
 //          "maptracks <json>", "mapparams <json>"; "followtoggle <0|1>" (SY.CORE changed the target: the toggle follows)
+//   out 2: to the view: "state <json>" (header, tag, slots), "val <slot> <0–1>"
+// No autowatch: a reloaded script would get no live.thisdevice bang (its only one, at load) — reload the device.
 // Parameters are read once per device (ids cached by device id): only the table's 16 on a track change.
-autowatch = 1;
+autowatch = 0;
 inlets = 1;
-outlets = 2;
-mgraphics.init();
-mgraphics.relative_coords = 0;
-mgraphics.autofill = 0;
+outlets = 3;
 
 var SLOTS = 16;
 // Factory tables (SY.CORE's tables replace them): slot = { param: original_name, min?, max?, int? }.
@@ -59,21 +59,10 @@ function num(id, prop) { return +get(id, prop)[0]; }
 function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].concat(a)); }
 
 // ── init ──
-function bang() { boot(); }
-function boot() {
+function bang() {
   if (ready) return;
-  try { start(); } catch (e) { ready = 0; post('sycore-map: start failed: ' + e + '\n'); }
+  try { start(); } catch (e) { post('sycore-map: start failed: ' + e + '\n'); }
 }
-// The script may be (re)loaded after live.thisdevice's bang at load (autowatch, a reload): until it has
-// started it asks live.thisdevice again ("askready" → its inlet), which bangs back only once the Live
-// API is initialized (never touch the Live API before: "Live API is not initialized").
-post('sycore-map: script loaded\n');
-var booter = new Task(function () {
-  if (ready) { booter.cancel(); return; }
-  outlet(1, 'askready');
-}, this);
-booter.interval = 500;
-booter.repeat();
 function start() {
   ready = 1;
   post('sycore-map: started\n');
@@ -156,7 +145,7 @@ function goTarget(trackId) {
   var tname = clean(get(trackId, 'name'));
   if (!found) {                                   // keep the last instrument (this device's own track…)
     T.note = tname + ': no instrument';
-    mgraphics.redraw();
+    view();
     return;
   }
   var info = deviceInfo(found.id), slots = [], mode;
@@ -178,7 +167,7 @@ function goTarget(trackId) {
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
   post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + info.name + ' (' + info.cls + ') · ' + mode + ' ' + n + '/16 · ' + T.ms + ' ms\n');
   sendInfo();
-  mgraphics.redraw();
+  view();
 }
 function trackIndex(id) { for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return i; return -1; }
 /** The target again (new tables, or SY.CORE picked a track). */
@@ -201,7 +190,7 @@ function setSlot(s, v) {
   p.value = Math.max(0, Math.min(1, v));
   var x = p.min + p.value * (p.max - p.min);
   outlet(0, s, p.int ? Math.round(x) : x);
-  mgraphics.redraw();
+  outlet(2, 'val', s, p.value);
 }
 /** A value observer on slot s's parameter (a new one per target: an observer on "id 0" is an invalid path). */
 function makeObserver(s, pid) {
@@ -222,12 +211,20 @@ function watch(s, slot) {
 }
 var flush = new Task(function () {
   var any = 0;
-  for (var s in dirty) { toBridge('mapvalue', +s, T.slots[s] ? T.slots[s].value : 0); any = 1; }
+  for (var s in dirty) { var v = T.slots[s] ? T.slots[s].value : 0; toBridge('mapvalue', +s, v); outlet(2, 'val', +s, v); any = 1; }
   dirty = {};
-  if (any) mgraphics.redraw();
 }, this);
 flush.interval = 30;
 flush.repeat();
+
+// ── the view (sycore-map-view.js) ──
+function view() {
+  var head = !T.devId ? (ready ? 'Select a track with an instrument' : 'Starting…')
+    : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
+  var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + T.cls : '');
+  outlet(2, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
+    slots: T.slots.map(function (x) { return x ? { name: x.name, value: x.value } : null; }) }));
+}
 
 // ── messages ──
 function anything() {
@@ -245,13 +242,15 @@ function anything() {
       else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
+    case 'drag': setSlot(a[0] | 0, +a[1]); break;
+    case 'viewready': view(); break;
   }
 }
 /** Follow the selected track (on: go to it now) or stay on the target (Lock). */
 function setFollow(v) {
   follow = v ? 1 : 0;
   if (follow && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) safeTarget(sel); }
-  mgraphics.redraw();
+  view();
 }
 /** Every parameter of the instrument driven now (for SY.CORE's table editor): slow, on request only. */
 function sendParams() {
@@ -264,77 +263,3 @@ function sendParams() {
   toBridge('mapparams', JSON.stringify({ cls: info.cls, name: info.name, params: out }));
 }
 
-// ── drawing ──
-var C = {
-  bg: [0.075, 0.075, 0.075, 1], cell: [0.12, 0.12, 0.12, 1], border: [1, 1, 1, 0.1], ink: [0.96, 0.96, 0.96, 1],
-  muted: [0.54, 0.56, 0.57, 1], dim: [0.36, 0.38, 0.4, 1], brand: [0, 0.64, 0.44, 1], brandSoft: [0.2, 0.84, 0.66, 1],
-  amber: [0.96, 0.62, 0.04, 1],
-};
-function rect(x, y, w, h, col, r) { mgraphics.set_source_rgba(col); mgraphics.rectangle_rounded(x, y, w, h, r || 3, r || 3); mgraphics.fill(); }
-function txt(t, x, y, col, size, bold, maxW) {
-  mgraphics.select_font_face(bold ? 'Arial Bold' : 'Arial');
-  mgraphics.set_font_size(size);
-  t = String(t);
-  if (maxW) while (t.length > 1 && mgraphics.text_measure(t)[0] > maxW) t = t.slice(0, -1);
-  mgraphics.set_source_rgba(col);
-  mgraphics.move_to(x, y);
-  mgraphics.show_text(t);
-}
-/** A name on up to two lines (words; the second line cut to fit). */
-function wrap2(t, x, y, col, size, maxW) {
-  mgraphics.select_font_face('Arial'); mgraphics.set_font_size(size);
-  var w = String(t).split(' '), a = '', i = 0;
-  for (; i < w.length; i++) { var n = a ? a + ' ' + w[i] : w[i]; if (a && mgraphics.text_measure(n)[0] > maxW) break; a = n; }
-  txt(a, x, y, col, size, 0, maxW);
-  if (i < w.length) txt(w.slice(i).join(' '), x, y + size + 2, col, size, 0, maxW);
-}
-function grid() {
-  var w = box.rect[2] - box.rect[0], h = box.rect[3] - box.rect[1];
-  var top = 20, gap = 3, cw = (w - gap * 7) / 8, ch = (h - top - gap) / 2;
-  return { w: w, h: h, top: top, gap: gap, cw: cw, ch: ch };
-}
-function cellAt(G, s) { return { x: (s % 8) * (G.cw + G.gap), y: G.top + Math.floor(s / 8) * (G.ch + G.gap) }; }
-function paint() {
-  var G = grid();
-  rect(0, 0, G.w, G.h, C.bg, 4);
-  // the target: track › (rack ›) instrument · mode
-  var head = !T.devId ? (ready ? 'Select a track with an instrument' : 'Starting…')
-    : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
-  txt(head, 2, 13, T.devId ? C.ink : C.dim, 10, 1, G.w - 120);
-  var tag = T.mode === 'macros' ? 'MACROS' : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + T.cls : '';
-  if (T.note) tag = T.note;
-  mgraphics.select_font_face('Arial'); mgraphics.set_font_size(9);
-  var tw = mgraphics.text_measure(tag)[0];
-  txt(tag, G.w - tw - 2, 13, T.mode === 'none' ? C.amber : C.muted, 9, 0);
-  for (var s = 0; s < SLOTS; s++) {
-    var c = cellAt(G, s), p = T.slots[s];
-    rect(c.x, c.y, G.cw, G.ch, C.cell);
-    txt(String(s + 1), c.x + 3, c.y + 10, C.dim, 8, 1);
-    if (!p) continue;
-    wrap2(p.name, c.x + 3, c.y + 21, C.ink, 9, G.cw - 5);
-    // the value: a bar along the bottom
-    var bh = 4, by = c.y + G.ch - bh - 3;
-    rect(c.x + 3, by, G.cw - 6, bh, [1, 1, 1, 0.08], 2);
-    rect(c.x + 3, by, Math.max(bh, (G.cw - 6) * p.value), bh, C.brandSoft, 2);
-  }
-}
-
-// ── dragging a slot (also without SY.CORE) ──
-var drag = -1, dragY = 0, dragV = 0;
-function onclick(x, y) {
-  var G = grid();
-  drag = -1;
-  for (var s = 0; s < SLOTS; s++) {
-    var c = cellAt(G, s);
-    if (x >= c.x && x <= c.x + G.cw && y >= c.y && y <= c.y + G.ch && T.slots[s]) { drag = s; dragY = y; dragV = T.slots[s].value; return; }
-  }
-}
-onclick.local = 1;
-function ondrag(x, y, but) {
-  if (drag < 0) return;
-  if (!but) { drag = -1; return; }
-  setSlot(drag, dragV + (dragY - y) / 120);
-}
-ondrag.local = 1;
-function onresize() { mgraphics.redraw(); }
-onresize.local = 1;

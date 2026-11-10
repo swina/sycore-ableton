@@ -58,18 +58,37 @@
       },
       {
         "box": {
-          "border": 0,
-          "filename": "C:/Users/swina/Documents/sycore-link/sycore-map.js",
-          "id": "obj-view",
-          "maxclass": "jsui",
+          "id": "obj-logic",
+          "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 2,
+          "numoutlets": 3,
           "outlettype": [
+            "",
             "",
             ""
           ],
           "patching_rect": [
             30,
+            90,
+            387,
+            22
+          ],
+          "text": "js C:/Users/swina/Documents/sycore-link/sycore-map.js"
+        }
+      },
+      {
+        "box": {
+          "border": 0,
+          "filename": "C:/Users/swina/Documents/sycore-link/sycore-map-view.js",
+          "id": "obj-view",
+          "maxclass": "jsui",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            500,
             120,
             440,
             134
@@ -970,19 +989,18 @@
           "id": "obj-rf",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 3,
+          "numoutlets": 2,
           "outlettype": [
-            "",
             "",
             ""
           ],
           "patching_rect": [
             500,
             270,
-            205,
+            142,
             22
           ],
-          "text": "route followtoggle askready"
+          "text": "route followtoggle"
         }
       },
       {
@@ -1308,7 +1326,7 @@
             0
           ],
           "destination": [
-            "obj-view",
+            "obj-logic",
             0
           ]
         }
@@ -1320,7 +1338,7 @@
             0
           ],
           "destination": [
-            "obj-view",
+            "obj-logic",
             0
           ]
         }
@@ -1328,7 +1346,7 @@
       {
         "patchline": {
           "source": [
-            "obj-view",
+            "obj-logic",
             0
           ],
           "destination": [
@@ -2108,7 +2126,7 @@
       {
         "patchline": {
           "source": [
-            "obj-view",
+            "obj-logic",
             1
           ],
           "destination": [
@@ -2146,18 +2164,6 @@
           "source": [
             "obj-rf",
             1
-          ],
-          "destination": [
-            "obj-dev",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "obj-rf",
-            2
           ],
           "destination": [
             "obj-ms",
@@ -2168,6 +2174,30 @@
       {
         "patchline": {
           "source": [
+            "obj-logic",
+            2
+          ],
+          "destination": [
+            "obj-view",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-view",
+            0
+          ],
+          "destination": [
+            "obj-logic",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "obj-fol",
             0
           ],
@@ -2184,7 +2214,7 @@
             0
           ],
           "destination": [
-            "obj-view",
+            "obj-logic",
             0
           ]
         }

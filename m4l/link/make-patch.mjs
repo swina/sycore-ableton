@@ -317,8 +317,9 @@ const rig = build([
 ], { width: RIG_W });
 
 // ── Map (P12) ───────────────────────────────────────────────────────────────
-// One device in the set drives the instrument of a track by table ([jsui] sycore-map.js: Live API and the
-// 16 slots drawn); each slot moves its parameter through a [live.remote~]. Follow: the selected track.
+// One device in the set drives the instrument of a track by table: [js sycore-map.js] the logic (Live API),
+// [jsui sycore-map-view.js] the 16 slots drawn (a reload of the view loses nothing); each slot moves its
+// parameter through a [live.remote~]. Follow: the selected track.
 // The track's MIDI passes through (the device can sit on an instrument track too).
 const MAP_W = 470, SLOTS = 16;
 const mapSlots = [], mapLines = [];
@@ -330,11 +331,12 @@ for (let s = 0; s < SLOTS; s++) {
 const map = build([
   ['dev', 'live.thisdevice', 1, 3, 30, 20],
   ['mr', `r ${MAP_OUT}`, 1, 1, 200, 20],
-  ['view', '', 1, 2, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map.js`, border: 0, patching_rect: [30, 120, 440, 134] }],
+  ['logic', `js ${LINK_DIR}/sycore-map.js`, 1, 3, 30, 90],
+  ['view', '', 1, 1, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map-view.js`, border: 0, patching_rect: [500, 120, 440, 134] }],
   ['rs', 'route ' + Array.from({ length: SLOTS }, (_, i) => i).join(' '), 1, SLOTS + 1, 30, 270],
   ...mapSlots,
   // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
-  ['rf', 'route followtoggle askready', 1, 3, 500, 270],
+  ['rf', 'route followtoggle', 1, 2, 500, 270],
   ['fset', 'prepend set', 1, 1, 500, 300],
   ['ms', `s ${MAP_IN}`, 1, 0, 620, 300],
   ['fol', 'LOCK', 1, 1, 500, 20, {
@@ -353,10 +355,11 @@ const map = build([
   ...chrome(MAP_W, 25).filter(b => b[0] !== 'div'),
   ['ttl', 'SY.CORE MAP', 1, 0, 600, 20, title([10, 5, 120, 20])],
 ], [
-  ['dev', 0, 'view', 0], ['mr', 0, 'view', 0],
-  ['view', 0, 'rs', 0], ...mapLines,
-  ['view', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'dev', 0], ['rf', 2, 'ms', 0],
-  ['fol', 0, 'fp', 0], ['fp', 0, 'view', 0],
+  ['dev', 0, 'logic', 0], ['mr', 0, 'logic', 0],
+  ['logic', 0, 'rs', 0], ...mapLines,
+  ['logic', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'ms', 0],
+  ['logic', 2, 'view', 0], ['view', 0, 'logic', 0],
+  ['fol', 0, 'fp', 0], ['fp', 0, 'logic', 0],
   ['mi', 0, 'mo', 0],
 ], { width: MAP_W });
 
