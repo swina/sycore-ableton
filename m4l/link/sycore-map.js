@@ -7,7 +7,8 @@
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params",
-//        "variation <index | next | prev | store | delete>" (a Rack's Macro Variations), "randomize" (its Macros)
+//        "variation <index | next | prev | store | delete>" (a Rack's Macro Variations), "randomize" (its Macros),
+//        "sync" (the bridge restarted: everything again)
 //   A slot moves its parameter through the Live API (like the mouse: no lock, the knob in Live follows;
 //   no live.remote~ — it greyed the parameter out and Live kept playing the old value while it held it).
 //   out 0: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
@@ -417,6 +418,9 @@ function anything() {
     case 'randomize': randomizeMacros(); break;
     case 'drag': setSlot(a[0] | 0, +a[1]); break;
     case 'viewready': sendView(); break;
+    // The bridge (re)started (the SY.CORE Link device reloaded): it knows nothing of this device — the
+    // tables and target again (mapready), the tracks and the instrument in focus.
+    case 'sync': if (ready) { toBridge('mapready'); readTracks(); sendInfo(); } break;
   }
 }
 /** Follow the selected track (on: go to it now) or stay on the target (Lock). */

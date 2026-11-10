@@ -26,7 +26,7 @@ const { WebSocketServer } = require('ws');
 const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.3.4'; // 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.3.5'; // 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -120,6 +120,10 @@ if (max) {
   // Each click is logged in the Max console (an unknown one too): the way to see where a click stops.
   // The SY.CORE Map device: loaded (tables and target to it), its instrument, values, tracks, parameters.
   max.addHandler('mapready', safe('mapready', () => { log('map: device ready'); sendMapSetup(); }));
+  // A Map device already in the set when this script (re)starts (the SY.CORE Link device reloaded) sent
+  // its tracks and instrument to the old script: ask again (and once more if nothing came).
+  setTimeout(() => toMax('map', 'sync'), 500);
+  setTimeout(() => { if (!mapTracks) toMax('map', 'sync'); }, 3000);
   max.addHandler('mapinfo', safe('mapinfo', (...t) => { const m = mapInfoFromDevice(t); if (m) { mapInfo = m; broadcast(m); } }));
   max.addHandler('mapvalue', safe('mapvalue', (slot, v) => { const m = mapValueFromDevice(slot, v); if (m) broadcast(m); }));
   max.addHandler('maptracks', safe('maptracks', (...t) => { const m = mapTracksFromDevice(t); if (m) { mapTracks = m; broadcast(m); } }));
