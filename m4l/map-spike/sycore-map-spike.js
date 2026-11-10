@@ -70,13 +70,14 @@ function target(trackId) {
   var tname = clean(tr.get('name'));
   var found = findInstrument(ids(tr.get('devices')), 0);
   var t1 = Date.now();
-  current = { track: tname, device: '', cls: '', params: [] };
+  // A track without an instrument (e.g. this device's own, selected when clicking on it): the last
+  // instrument stays the target, so the device can still be used.
   if (!found) {
-    release(0);
-    info(tname + ': no instrument');
+    info(tname + ': no instrument' + (current.device ? ' — still on ' + current.track + ' › ' + current.device : ''));
     outlet(1, 'time', 'read ' + (t1 - t0) + ' ms');
     return;
   }
+  current = { track: tname, device: '', cls: '', params: [] };
   var d = found.dev;
   current.device = clean(d.get('name'));
   current.cls = clean(d.get('class_name'));
