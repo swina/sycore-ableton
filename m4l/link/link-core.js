@@ -319,7 +319,7 @@ function mapValueFromDevice(slot, value) {
 function mapTracksFromDevice(t) {
   const o = json(t);
   if (!Array.isArray(o)) return null;
-  return { type: 'map-tracks', tracks: o.slice(0, 1000).map(x => ({ index: int(x && x.index, 0, 999, 0), name: text(x && x.name, 128) })) };
+  return { type: 'map-tracks', tracks: o.slice(0, 1000).map(x => ({ index: int(x && x.index, 0, 999, 0), name: text(x && x.name, 128), instrument: text(x && x.instrument, 128) })) };
 }
 /** `mapparams <json { cls, name, params: [{ name, shown, min, max, q }] }>` → `map-params`, or null. */
 function mapParamsFromDevice(t) {

@@ -193,7 +193,7 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.equal(mapInfoFromDevice(['{"mode":"none",', '"track":null}']).mode, 'none');
   assert.deepEqual(mapValueFromDevice(2, 0.5), { type: 'map-value', slot: 2, value: 0.5 });
   assert.equal(mapValueFromDevice(20, 0.5), null);
-  assert.deepEqual(mapTracksFromDevice('[{"index":0,"name":"1-Drums"}]'), { type: 'map-tracks', tracks: [{ index: 0, name: '1-Drums' }] });
+  assert.deepEqual(mapTracksFromDevice('[{"index":0,"name":"1-Drums","instrument":"808 Kit"}]'), { type: 'map-tracks', tracks: [{ index: 0, name: '1-Drums', instrument: '808 Kit' }] });
   const p = mapParamsFromDevice(JSON.stringify({ cls: 'OriginalSimpler', name: 'Bass', params: [{ name: 'Volume', min: -36, max: 36 }, { name: 'F On', q: 1 }] }));
   assert.deepEqual(p.params, [{ name: 'Volume', shown: 'Volume', min: -36, max: 36, quantized: 0 }, { name: 'F On', shown: 'F On', min: 0, max: 1, quantized: 1 }]);
 });

@@ -95,11 +95,21 @@ function onSelected(args) {
 }
 var tracksTask = new Task(readTracks, this);
 function onTracks(args) { if (args && args[0] === 'tracks') tracksTask.schedule(0); }
+/** The set's tracks, each with its first instrument's name ('' = none: SY.CORE's DECK lists only the
+ *  tracks with one). Read at start and when the tracks change; a track's entry is refreshed on a target. */
 function readTracks() {
   var list = ids(new LiveAPI(null, 'live_set').get('tracks'));
   tracks = [];
-  for (var i = 0; i < list.length; i++) tracks.push({ id: list[i], index: i, name: clean(get(list[i], 'name')) });
-  toBridge('maptracks', JSON.stringify(tracks.map(function (t) { return { index: t.index, name: t.name }; })));
+  for (var i = 0; i < list.length; i++) tracks.push({ id: list[i], index: i, name: clean(get(list[i], 'name')), instrument: trackInstrument(list[i]) });
+  sendTracks();
+}
+function trackInstrument(trackId) {
+  var devs = ids(get(trackId, 'devices'));
+  for (var i = 0; i < devs.length; i++) if (num(devs[i], 'type') === 1) return clean(get(devs[i], 'name'));
+  return '';
+}
+function sendTracks() {
+  toBridge('maptracks', JSON.stringify(tracks.map(function (t) { return { index: t.index, name: t.name, instrument: t.instrument }; })));
 }
 
 // ── the target ──
@@ -225,6 +235,8 @@ function goTarget(trackId) {
     while (slots.length < SLOTS) slots.push(null);
     slotCache[ck] = { mode: mode, nMacros: nMacros, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   }
+  var ti = trackIndex(trackId), shown = found.rack || (inst ? info.name : '');
+  if (ti >= 0 && (tracks[ti].instrument !== shown || tracks[ti].name !== tname)) { tracks[ti].instrument = shown; tracks[ti].name = tname; sendTracks(); }
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
     rack: found.rack, rackId: found.macros ? found.rackId : 0, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
   watchVariations(T.rackId);

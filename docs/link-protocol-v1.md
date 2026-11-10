@@ -57,7 +57,7 @@ One **SY.CORE Map** device in the set drives the instrument of a track — the s
 | client | `map-randomize` | — : randomize the Rack's Macros |
 | device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `none`), `slots` (16: `{ param, name, value 0–1 }` or null), `variations` (`count`, `selected` -1 = none; null when no Rack) — on each change of target or variation |
 | device | `map-value` | `slot`, `value` (0–1): a slot's parameter moved in Live (mouse, automation, preset) |
-| device | `map-tracks` | `tracks`: `[{ index, name }]` |
+| device | `map-tracks` | `tracks`: `[{ index, name, instrument }]` (`instrument`: its first instrument's name, '' = none) |
 | device | `map-params` | `cls`, `name`, `params`: `[{ name (original_name), shown, min, max, quantized }]` (at most 512) |
 
 The bridge keeps the last `map-tables` and `map-target` for a Map device loaded later (it says `mapready`), and the last `map-info` and `map-tracks` for a client connecting later. Inside Max: bridge → `[s sycore_map]` (`map tables <json>`, `map value <slot> <v>`, `map target <follow|track>`, `map params`), device → `[s sycore_map_in]` (`mapready`, `mapinfo <json>`, `mapvalue <slot> <v>`, `maptracks <json>`, `mapparams <json>`). Bridge 1.2.0.
