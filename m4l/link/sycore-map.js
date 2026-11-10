@@ -6,7 +6,8 @@
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params"
-//   out 0: "<slot> id <param id>" (re-point a live.remote~, id 0 = released) / "<slot> <value>" (parameter units)
+//   out 0: "<slot> id <param id>" (a live.remote~ takes the parameter while the slot moves; id 0 = let go)
+//          / "<slot> <value>" (parameter units)
 //   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
 //          "maptracks <json>", "mapparams <json>"; "followtoggle <0|1>" (SY.CORE changed the target: the toggle follows)
 //   out 2: to the view: "state <json>" (header, tag, slots), "val <slot> <0–1>"
@@ -105,14 +106,15 @@ function findInstrument(devIds, depth) {
     var d = devIds[i];
     if (num(d, 'type') !== 1) continue;                       // 1 = instrument
     if (num(d, 'can_have_chains') && depth < 4) {
-      var rackName = clean(get(d, 'name'));
-      if (num(d, 'has_macro_mappings')) return { id: d, macros: 1, rack: null };
+      // A Rack (the user's choice, 2026-11-10): the instrument inside when it has a table (encoder n does
+      // the same on every Drift); else the Rack's mapped Macros; else the instrument inside (no table).
+      var rackName = clean(get(d, 'name')), inner = null;
       var chains = ids(get(d, 'chains'));
-      for (var c = 0; c < chains.length; c++) {
-        var inner = findInstrument(ids(get(chains[c], 'devices')), depth + 1);
-        if (inner) { if (!inner.rack) inner.rack = rackName; return inner; }
-      }
-      return { id: d, macros: 1, rack: null };
+      for (var c = 0; c < chains.length && !inner; c++) inner = findInstrument(ids(get(chains[c], 'devices')), depth + 1);
+      if (inner && !inner.rack) inner.rack = rackName;
+      if (inner && !inner.macros && tableSet[deviceInfo(inner.id).cls]) return inner;
+      if (num(d, 'has_macro_mappings')) return { id: d, macros: 1, rack: null };
+      return inner || { id: d, macros: 1, rack: null };
     }
     return { id: d, macros: 0, rack: null };
   }
@@ -133,15 +135,20 @@ function slotFor(pid, def) {
   if (def.min !== undefined && def.min !== null) s.min = Math.max(min, def.min);
   if (def.max !== undefined && def.max !== null) s.max = Math.min(max, def.max);
   if (s.max <= s.min) { s.min = min; s.max = max; }
-  s.value = norm(s, num(pid, 'value'));
+  s.value = 0;          // the value comes from the slot's observer (it reports it when set up)
   return s;
 }
+function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
 function norm(s, x) { return s.max > s.min ? Math.max(0, Math.min(1, (x - s.min) / (s.max - s.min))) : 0; }
 
 // (not named after a message: Max JS calls a function named like the message — "target follow" → target('follow'))
+var foundCache = {};   // track id → { key: its device ids, found }: the instrument search skipped while the devices stay
+var slotCache = {};    // device id → its 16 slots (name, range…), values apart
 function goTarget(trackId) {
   var t0 = Date.now();
-  var found = findInstrument(ids(get(trackId, 'devices')), 0);
+  var devs = ids(get(trackId, 'devices')), key = devs.join(','), fc = foundCache[trackId];
+  var found = fc && fc.key === key ? fc.found : findInstrument(devs, 0);
+  foundCache[trackId] = { key: key, found: found };
   var tname = clean(get(trackId, 'name'));
   if (!found) {                                   // keep the last instrument (this device's own track…)
     T.note = tname + ': no instrument';
@@ -149,7 +156,11 @@ function goTarget(trackId) {
     return;
   }
   var info = deviceInfo(found.id), slots = [], mode;
-  if (found.macros) {
+  var sc = slotCache[found.id];
+  if (sc) {
+    mode = sc.mode;
+    for (var c = 0; c < SLOTS; c++) slots.push(sc.slots[c] ? copy(sc.slots[c]) : null);
+  } else if (found.macros) {
     mode = 'macros';
     for (var m = 0; m < SLOTS; m++) { var mp = info.byName['Macro ' + (m + 1)]; slots.push(mp ? slotFor(mp, { param: 'Macro ' + (m + 1) }) : null); }
   } else {
@@ -160,9 +171,10 @@ function goTarget(trackId) {
       slots.push(pid ? slotFor(pid, def) : null);
     }
   }
+  if (!sc) slotCache[found.id] = { mode: mode, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: info.name, cls: info.cls,
     rack: found.rack, mode: mode, slots: slots, ms: 0, note: '' };
-  for (var k = 0; k < SLOTS; k++) { outlet(0, k, 'id', slots[k] ? slots[k].id : 0); watch(k, slots[k]); }
+  for (var k = 0; k < SLOTS; k++) { release(k); watch(k, slots[k]); }
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
   post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + info.name + ' (' + info.cls + ') · ' + mode + ' ' + n + '/16 · ' + T.ms + ' ms\n');
@@ -184,9 +196,22 @@ function sendInfo() {
 
 // ── values ──
 /** Slot s to v (0–1): its range, whole numbers when int. */
+// A live.remote~ takes its parameter exclusively (greyed out in Live: no mouse, no automation): a slot
+// holds it only while it moves, and lets it go 500 ms after the last move (the value stays).
+var held = [], heldAt = [];
+var HOLD_MS = 500;
+function release(s) { if (held[s]) outlet(0, s, 'id', 0); held[s] = 0; }
+var releaser = new Task(function () {
+  var now = Date.now();
+  for (var s = 0; s < SLOTS; s++) if (held[s] && now - heldAt[s] > HOLD_MS) release(s);
+}, this);
+releaser.interval = 100;
+releaser.repeat();
 function setSlot(s, v) {
   var p = T.slots[s];
   if (!p) return;
+  if (held[s] !== p.id) { outlet(0, s, 'id', p.id); held[s] = p.id; }
+  heldAt[s] = Date.now();
   p.value = Math.max(0, Math.min(1, v));
   var x = p.min + p.value * (p.max - p.min);
   outlet(0, s, p.int ? Math.round(x) : x);
@@ -199,8 +224,8 @@ function makeObserver(s, pid) {
     var p = T.slots[s];
     if (!p) return;
     var v = norm(p, +args[1]);
-    if (Math.abs(v - p.value) < 1e-4) return;
-    p.value = v; dirty[s] = 1;
+    if (p.seen && Math.abs(v - p.value) < 1e-4) return;
+    p.seen = 1; p.value = v; dirty[s] = 1;
   }, 'id ' + pid);
   o.property = 'value';
   return o;
@@ -234,7 +259,7 @@ function anything() {
     case 'follow': setFollow(a[0]); break;
     case 'tables':
       try { setTables(JSON.parse(a.join(' '))); } catch (e) { post('sycore-map: bad tables\n'); break; }
-      cache = {};
+      cache = {}; slotCache = {}; foundCache = {};
       if (ready) retarget();
       break;
     case 'value': setSlot(a[0] | 0, +a[1]); break;
