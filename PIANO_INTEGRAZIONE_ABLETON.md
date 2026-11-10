@@ -553,6 +553,17 @@ L'idea della **CC Table** di SY.CORE portata in Live: l'encoder *n* di un contro
 | Manopole assolute che saltano a un cambio traccia | Pickup in SY.CORE, con i valori del feedback |
 | Serve Max for Live (Suite, o Standard + add-on) | Come la F11; senza, restano il percorso MIDI e le mappature di Live |
 
+#### 12.6 Stato dello spike (2026-11-10) — superato
+`m4l/map-spike/` (`sycore-map-spike.amxd`, `[js]` LiveAPI + 16 `live.remote~`); Live 12, Windows; tracce con Drift, Analog, Simpler e un Instrument Rack, il device su una traccia sua.
+- **Follow funziona**; una traccia senza strumento (quella del device, selezionata cliccandoci sopra) lascia come bersaglio l'ultimo strumento.
+- **Cambio traccia: 3–4 ms** in tutto (strumento trovato, parametri letti — fino ai 172 di Analog —, 16 remote ripuntati).
+- **Slot 1 e Sweep muovono i parametri.** CPU con Sweep (16 slot ogni 25 ms): 1–2 %, 8 % su Analog — lì i primi 16 parametri (nessuna tabella) comprendono Voices, Unison, Octave: ogni cambio ricostruisce le voci. Una tabella vera lo evita.
+- **Rack:** si muovevano le 16 Macro (slot = i parametri del Rack, Device On + Macro 1–16): la modalità Rack del §12.2, da sola. Da verificare se lo strumento interno veniva trovato.
+- **Classi e parametri** (dump in `m4l/map-spike/params/`): `Drift` 66, `UltraAnalog` 172 (due layer), `OriginalSimpler` 58 (LFO non esposto, solo "L On"). `original_name` è in inglese e stabile.
+- **Per lo store:** gli intervalli sono quelli del parametro — quasi sempre 0…1, ma quantità di modulazione bipolari -1…1 e unità reali su Simpler (Volume -36…+36 dB, Fe < Env -72…72, Filter Drive 0…24); alcuni sono interi senza essere marcati a scatti (Octave, Semi, Transpose, LFO Synced). Uno slot della tabella deve avere **min / max** (es. Volume di Simpler fino a +6 dB) e un flag **intero**.
+- **Tabelle di fabbrica proposte** (slot 1–8 / 9–16): Drift — LP Freq, LP Res, HP Freq, LP Mod Amt 1, Env 1 A/D/S/R / Osc 1 Shape, Osc 2 Detune, Osc 2 Gain, Noise Gain, LFO Rate, LFO Amt, Drift, Volume. Analog — F1 Freq, F1 Resonance, F1 Freq < Env, F1 Freq < LFO, AEG1 Attack/Decay/Sustain/Rel / OSC1 PW, OSC2 Detune, OSC1 Level, OSC2 Level, Noise Level, LFO1 Speed, Glide Time, Volume. Simpler — Filter Freq, Filter Res, Fe < Env, Filter Drive, Ve Attack/Decay/Sustain/Release / S Start, S Length, Transpose, Detune, Glide Time, Shaper Amt, Pan, Volume.
+- **Prossimo:** passo 2 (protocollo + bridge).
+
 ## 5. Ordine e stime
 
 | # | Fase | Sforzo | Dipendenze |

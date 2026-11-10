@@ -1,0 +1,13 @@
+# Simpler (class_name OriginalSimpler) — Live 12, P12 spike dump, 2026-11-10: 58 parameters (LFO: only "L On" exposed).
+# Ranges in real units, not 0…1: Volume -36…36 (dB), Transpose -48…48, Detune -50…50, Spread 0…100,
+# Pe < Env -48…48, Fe < Env -72…72, Filter Res 0…1.25, Filter Drive 0…24, Filt < LFO 0…24, Shaper Amt 0…100, Pan -1…1.
+# Steps: Snap, S Loop On, Glide Mode 0…2, Pe On, Ve Mode 0…4, Trigger Mode, F On, Filter Type 0…4,
+# Filter Circuit - LP/HP 0…4, Filter Circuit - BP/NO/Morph, Filter Slope, Fe On, Shaper Type 0…3, Shaper Pre-Filter, L On.
+0 Device On · 1 Snap · 2 Sample Selector 0…127 · 3 S Start · 4 S Length · 5 S Loop On · 6 S Loop Length · 7 S Loop Fade
+8 Spread · 9 Glide Mode · 10 Glide Time · 11 Transpose · 12 Detune · 13 Pitch < LFO · 14 Pe On · 15 Pe < Env
+16 Pe Attack · 17 Pe Decay · 18 Pe Sustain -1…1 · 19 Pe Release · 20 Volume · 21 Vol < Vel · 22 Vol < LFO · 23 Pan
+24 Pan < Rnd · 25 Pan < LFO · 26 Ve Attack · 27 Ve Decay · 28 Ve Sustain · 29 Ve Release · 30 Ve Mode · 31 Ve Loop
+32 Ve Retrig 0…14 · 33 Fade In · 34 Trigger Mode · 35 Fade Out · 36 F On · 37 Filter Type · 38 Filter Circuit - LP/HP
+39 Filter Circuit - BP/NO/Morph · 40 Filter Slope · 41 Filter Freq · 42 Filter Res · 43 Filter Morph · 44 Filter Drive
+45 Fe On · 46 Fe < Env · 47 Fe Attack · 48 Fe Decay · 49 Fe Sustain · 50 Fe Release · 51 Filt < Key · 52 Filt < Vel
+53 Filt < LFO · 54 Shaper Type · 55 Shaper Amt · 56 Shaper Pre-Filter · 57 L On

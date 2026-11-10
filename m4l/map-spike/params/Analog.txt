@@ -1,0 +1,12 @@
+# Analog (class_name UltraAnalog) — Live 12, P12 spike dump, 2026-11-10: 172 parameters, two layers
+# (OSC/F/FEG/AMP/AEG/LFO 1 and 2). Ranges: most 0…1, mod amounts -1…1 (bipolar), Octave -3…3 and
+# Semi -12…12 integer but not flagged as steps. Full list: re-run "dump" (later sent to SY.CORE by the device).
+# Notable original_names:
+#  0 Device On · 1 Voices (steps 0…9) · 3 Volume · 13 Octave · 14 Semitone · 15 Detune · 16 Unison On/Off
+#  18 Unison Detune · 31 Glide Time · 37 Noise Level
+#  OSC1: 39 OSC1 Shape (steps 0…3) · 44 OSC1 Detune · 46 OSC1 PW · 48 OSC1 Balance · 52 OSC1 Level
+#  F1:   54 F1 Type (steps 0…9) · 55 F1 Drive (steps 0…6) · 57 F1 Freq · 59 F1 Resonance · 61 F1 Freq < LFO · 62 F1 Freq < Env
+#  FEG1: 70 FEG1 Attack · 71 FEG1 Decay · 73 FEG1 Sustain · 75 FEG1 Rel
+#  AEG1: 89 AEG1 Attack · 90 AEG1 Decay · 92 AEG1 Sustain · 94 AEG1 Rel
+#  LFO1: 96 LFO1 Shape (steps) · 101 LFO1 Speed
+#  OSC2: 111 OSC2 Detune · 113 OSC2 PW · 119 OSC2 Level · F2: 124 F2 Freq · 126 F2 Resonance · AEG2: 156/157/159/161 · LFO2: 168 LFO2 Speed

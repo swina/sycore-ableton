@@ -553,6 +553,17 @@ SY.CORE's **CC Table** idea brought to Live: encoder *n* of a controller always 
 | Absolute knobs jumping on a track change | Pickup in SY.CORE, with the feedback values |
 | Requires Max for Live (Suite, or Standard + add-on) | As P11; without it, the MIDI path and Live's own mappings stay |
 
+#### 12.6 Spike status (2026-11-10) — passed
+`m4l/map-spike/` (`sycore-map-spike.amxd`, `[js]` LiveAPI + 16 `live.remote~`); Live 12, Windows; tracks with Drift, Analog, Simpler and an Instrument Rack, the device on its own track.
+- **Follow works**; a track without an instrument (the device's own, selected when clicking on it) keeps the last instrument as the target.
+- **Track change: 3–4 ms** in all (instrument found, parameters read — up to Analog's 172 —, 16 remotes re-pointed).
+- **Slot 1 and Sweep move the parameters.** CPU with Sweep (16 slots every 25 ms): 1–2 %, 8 % on Analog — there the first 16 parameters (no table) include Voices, Unison, Octave: each change rebuilds the voices. A real table avoids it.
+- **Rack:** the 16 Macros moved (slots = the Rack's own parameters, Device On + Macro 1–16): the Rack mode of §12.2 by itself. Still to check whether the instrument inside was found.
+- **Classes and parameters** (dumps in `m4l/map-spike/params/`): `Drift` 66, `UltraAnalog` 172 (two layers), `OriginalSimpler` 58 (LFO not exposed but "L On"). `original_name` is in English and stable.
+- **For the store:** ranges are the parameter's own — mostly 0…1, but bipolar -1…1 mod amounts and real units on Simpler (Volume -36…+36 dB, Fe < Env -72…72, Filter Drive 0…24); some are integers without being flagged as steps (Octave, Semi, Transpose, LFO Synced). A table slot needs **min / max** (e.g. Simpler Volume up to +6 dB) and an **integer** flag.
+- **Factory tables proposed** (slots 1–8 / 9–16): Drift — LP Freq, LP Res, HP Freq, LP Mod Amt 1, Env 1 A/D/S/R / Osc 1 Shape, Osc 2 Detune, Osc 2 Gain, Noise Gain, LFO Rate, LFO Amt, Drift, Volume. Analog — F1 Freq, F1 Resonance, F1 Freq < Env, F1 Freq < LFO, AEG1 Attack/Decay/Sustain/Rel / OSC1 PW, OSC2 Detune, OSC1 Level, OSC2 Level, Noise Level, LFO1 Speed, Glide Time, Volume. Simpler — Filter Freq, Filter Res, Fe < Env, Filter Drive, Ve Attack/Decay/Sustain/Release / S Start, S Length, Transpose, Detune, Glide Time, Shaper Amt, Pan, Volume.
+- **Next:** step 2 (protocol + bridge).
+
 ## 5. Order and estimates
 
 | # | Phase | Effort | Depends on |
