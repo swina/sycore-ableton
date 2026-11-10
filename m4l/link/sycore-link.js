@@ -26,7 +26,7 @@ const { WebSocketServer } = require('ws');
 const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.3.3'; // 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.3.4'; // 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -173,7 +173,7 @@ wss.on('connection', (ws, req) => {
       case 'map-params-request': toMax('map', 'params'); break;
       case 'map-variation': { const v = parseMapVariation(msg); if (v !== undefined) toMax('map', 'variation', v); break; }
       case 'map-randomize': toMax('map', 'randomize'); break;
-      case 'ping': send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(now()) }); break;
+      case 'ping': { const t = now(); send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(t), nt: Math.round(t * 1000) / 1000 }); break; }
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)
     }

@@ -61,7 +61,9 @@ class Transport {
   msPerBeat() { return 60000 / this.tempo; }
 
   snapshot(now) {
-    return { type: 'transport', playing: this.playing, beat: this.beatAt(now), tempo: this.tempo, num: this.num, den: this.den };
+    // at: the bridge's clock (performance.now() ms) when the report is made — the client, knowing the
+    // offset to its own clock (from the pongs' nt), corrects a report it reads late (a busy page).
+    return { type: 'transport', playing: this.playing, beat: this.beatAt(now), tempo: this.tempo, num: this.num, den: this.den, at: Math.round(now * 1000) / 1000 };
   }
 }
 

@@ -17,6 +17,7 @@ The device sends its `hello` and a `transport` on connect, without waiting for t
 ## Transport (device → client)
 `transport`: `playing` (bool), `beat`, `tempo` (BPM), `num`, `den` (time signature).
 Sent on every change of playing / tempo / signature, and every 50 ms while connected. The client interpolates the beat between reports: `beat + (now − arrival) × tempo / 60000` while playing.
+`at` (bridge 1.3.4+): the device's clock (ms) when the report was made. With the offset between the two clocks (from the `pong`'s `nt`, on the ping with the shortest round trip), the client knows the report's age and corrects it — a report read late (the page busy for hundreds of ms, the reports queued) is not taken for a jump in Live's position.
 
 ## MIDI (client → device)
 `midi`: `data` (2–3 raw bytes of one channel message: note on/off, CC, pitch bend, program change, aftertouch), `beat` (when to play it; omitted = now).
@@ -32,7 +33,7 @@ The device also runs `clear` by itself when the last client disconnects.
 | From | Message | Fields |
 |---|---|---|
 | client | `ping` | `t` |
-| device | `pong` | `t` (echoed), `beat` |
+| device | `pong` | `t` (echoed), `beat`, `nt` (the device's clock, ms; 1.3.4+) |
 | device | `stats` | every second while MIDI arrives: `msgs`, `late`, `dropped`, `leadMinMs`, `leadAvgMs` |
 | device | `error` | `code` (`version`, `bad-message`), `message` |
 
