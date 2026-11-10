@@ -82,7 +82,7 @@ function start() {
 var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
-var DEBUG = 0;   // 1: each selection and target in the Max console
+var DEBUG = 1;   // 1: selections, targets and slot moves in the Max console
 function onSelected(args) {
   if (DEBUG) post('sycore-map: selected ' + (args ? args.join(' ') : '?') + (following ? '' : ' (lock)') + '\n');
   if (!following || !args || args[0] !== 'selected_track') return;
@@ -237,9 +237,11 @@ var releaser = new Task(function () {
 }, this);
 releaser.interval = 100;
 releaser.repeat();
-function setSlot(s, v) {
+var lastLog = 0;
+function setSlot(s, v, from) {
   var p = T.slots[s];
-  if (!p) return;
+  if (!p) { if (DEBUG) post('sycore-map: slot ' + s + ' empty\n'); return; }
+  if (DEBUG && Date.now() - lastLog > 250) { lastLog = Date.now(); post('sycore-map: ' + (from || '?') + ' slot ' + s + ' id ' + p.id + ' held ' + held[s] + ' → ' + (p.min + v * (p.max - p.min)) + '\n'); }
   if (held[s] !== p.id) { outlet(0, s, 'id', p.id); held[s] = p.id; }
   heldAt[s] = Date.now();
   p.value = Math.max(0, Math.min(1, v));
@@ -292,13 +294,13 @@ function anything() {
       cache = {}; slotCache = {}; foundCache = {};
       if (ready) retarget();
       break;
-    case 'value': setSlot(a[0] | 0, +a[1]); break;
+    case 'value': setSlot(a[0] | 0, +a[1], 'SY.CORE'); break;
     case 'target':
       if (a[0] === 'follow') { setFollow(1); outlet(1, 'followtoggle', 1); }
       else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
-    case 'drag': setSlot(a[0] | 0, +a[1]); break;
+    case 'drag': setSlot(a[0] | 0, +a[1], 'drag'); break;
     case 'viewready': sendView(); break;
   }
 }
