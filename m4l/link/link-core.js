@@ -285,9 +285,10 @@ function parseMapTarget(m) {
   return t < 0 ? undefined : t;
 }
 
-/** `map-variation` → an index (0–127), 'next' or 'prev'; undefined if not one. */
+/** `map-variation` → an index (0–127), 'next', 'prev', 'store' or 'delete'; undefined if not one. */
 function parseMapVariation(m) {
   if (!m || m.type !== 'map-variation') return undefined;
+  if (m.action === 'store' || m.action === 'delete') return m.action;
   if (m.step === 1 || m.step === -1) return m.step > 0 ? 'next' : 'prev';
   const i = int(m.index, 0, 127, -1);
   return i < 0 ? undefined : i;

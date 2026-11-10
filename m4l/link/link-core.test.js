@@ -190,6 +190,9 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.equal(parseMapVariation({ type: 'map-variation', step: 1 }), 'next');
   assert.equal(parseMapVariation({ type: 'map-variation', step: -1 }), 'prev');
   assert.equal(parseMapVariation({ type: 'map-variation', index: -2 }), undefined);
+  assert.equal(parseMapVariation({ type: 'map-variation', action: 'store' }), 'store');
+  assert.equal(parseMapVariation({ type: 'map-variation', action: 'delete' }), 'delete');
+  assert.equal(parseMapVariation({ type: 'map-variation', action: 'wipe' }), undefined);
   assert.equal(mapInfoFromDevice('not json'), null);
   // a JSON symbol split in words by Max: joined again
   assert.equal(mapInfoFromDevice(['{"mode":"none",', '"track":null}']).mode, 'none');

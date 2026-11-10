@@ -7,7 +7,7 @@
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params",
-//        "variation <index | next | prev>" (recall a Rack's Macro Variation), "randomize" (the Rack's Macros)
+//        "variation <index | next | prev | store | delete>" (a Rack's Macro Variations), "randomize" (its Macros)
 //   out 0: "<slot> id <param id>" (a live.remote~ takes the parameter while the slot moves; id 0 = let go)
 //          / "<slot> <value>" (parameter units)
 //   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
@@ -304,8 +304,11 @@ function watchVariations(rackId) {
     varObs.push(o);
   });
 }
-/** Recall a Macro Variation of the Rack in focus: an index, or 'next' / 'prev' (wrapping). */
+/** Recall a Macro Variation of the Rack in focus: an index, or 'next' / 'prev' (wrapping); 'store' (the
+ *  Macros as they are now, a new variation) and 'delete' (the selected one). */
 function recallVariation(arg) {
+  if (arg === 'store') { storeVar(); return; }
+  if (arg === 'delete') { deleteVar(); return; }
   if (!T.rackId || !T.varCount) return;
   var cur = T.varSel, n = T.varCount, i;
   if (arg === 'next') i = cur < 0 ? 0 : (cur + 1) % n;
@@ -317,6 +320,23 @@ function recallVariation(arg) {
   r.call('recall_selected_variation');
   T.varSel = i;
   post('sycore-map: ' + T.rack + ' variation ' + (i + 1) + '/' + n + '\n');
+  sendInfo(); sendView();
+}
+function storeVar() {
+  if (!T.rackId) return;
+  at(T.rackId).call('store_variation');
+  T.varCount = num(T.rackId, 'variation_count') | 0;
+  T.varSel = num(T.rackId, 'selected_variation_index');
+  post('sycore-map: ' + T.rack + ' variation stored (' + T.varCount + ')\n');
+  sendInfo(); sendView();
+}
+function deleteVar() {
+  if (!T.rackId || !T.varCount || T.varSel < 0) return;
+  var n = T.varSel + 1;
+  at(T.rackId).call('delete_selected_variation');
+  T.varCount = num(T.rackId, 'variation_count') | 0;
+  T.varSel = num(T.rackId, 'selected_variation_index');
+  post('sycore-map: ' + T.rack + ' variation ' + n + ' deleted (' + T.varCount + ' left)\n');
   sendInfo(); sendView();
 }
 function randomizeMacros() {
