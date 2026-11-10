@@ -1,6 +1,6 @@
 # SY.CORE × Ableton Live — Piano di integrazione
 
-*Rev. 12 · 2026-11-08 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `feat/rig-controller-ui`, commit `4933c92`; F1 completata, scheduler nel Worker compreso; prima parte della F3 Control Map completata, vedi §4; passi 1–2b della F9 e prime opzioni per traccia completati, vedi §9.9; spike F11 "SY.CORE Link" superato, in locale e da https, vedi §11.5; prossimo il protocollo v1)*
+*Rev. 13 · 2026-11-10 · Repository di riferimento: `D:\personal\apps\sycore-refactor` (branch `master`, commit `baf977b`: F9 Rig Controller e F11 SY.CORE Link uniti, il device SY.CORE Rig in Live; pianificata la F12 "SY.CORE Map", §F12; prima: commit `4933c92`; F1 completata, scheduler nel Worker compreso; prima parte della F3 Control Map completata, vedi §4; passi 1–2b della F9 e prime opzioni per traccia completati, vedi §9.9; spike F11 "SY.CORE Link" superato, in locale e da https, vedi §11.5; prossimo il protocollo v1)*
 *Questo piano vive fuori dal repository. Gli eventuali tool esterni (bridge, device Max for Live, template) andranno in `D:\personal\apps\sycore-ableton\`. Versione inglese: `ABLETON_INTEGRATION_PLAN.md`.*
 
 ---
@@ -505,6 +505,54 @@ Device costruito dalla patch pronta `m4l/spike/sycore-link-spike.maxpat` (Max MI
 | Un secondo prodotto da mantenere | Protocollo versionato (`"v"`), device sottile (solo trasporto e scheduling), logica in SY.CORE |
 | Note che arrivano tardi via WebSocket (pagina bloccata) | Lookahead come CLK SYS; note in ritardo gestite come `chaseNote` (le lunghe suonano per quanto resta, le corte saltano) |
 
+### Fase 12 — "SY.CORE Map": un solo device per gli strumenti di Live, a tabella (dopo la F11 · spike 1 giorno, MVP 6-8 giorni)
+L'idea della **CC Table** di SY.CORE portata in Live: l'encoder *n* di un controller comanda sempre lo **slot *n*** dello strumento in primo piano, qualunque esso sia. In SY.CORE uno slot è un numero CC (`ccTable: { cc, name }[]`, l'ordine = le manopole); in Live diventa un **parametro dello strumento**, per nome. Una tabella per tipo di strumento, scritta una volta, valida su ogni traccia e in ogni set.
+
+#### 12.1 Perché
+- **Live mappa un controllo su un parametro di un device.** Cambi strumento, aggiungi una traccia, apri un altro set: la mappatura sparisce o punta altrove. Con un rig da performance (Launchkey, MIDImix…) vuol dire rimappare, o tenere un template diverso per ogni set.
+- **I Rack con le Macro** risolvono in parte, ma ogni Rack si mappa a mano, le mappature vivono nei preset di Live e niente è condiviso con SY.CORE.
+- **I Remote Script** (banchi di device su misura, come fa Push) non sono documentati, richiedono il riavvio di Live a ogni modifica e si rompono tra una versione e l'altra.
+- SY.CORE ha già i controller (Rig Controller, MIDI Learn, feedback dei LED, profilo MIDImix) e le CC table: manca l'ultimo passo dentro Live.
+
+#### 12.2 Architettura
+- **Un solo device per tutto il set — `sycore-map.amxd`** (Max MIDI Effect, su una traccia qualsiasi, es. la traccia "SY.CORE Control" con `sycore-link`). Parla con il bridge dentro Max (`[s]` / `[r]`, come i device Rig), nessuna connessione in più.
+- **Bersaglio:** modalità **Follow** (la traccia selezionata in Live: `song.view.selected_track` osservata) o una traccia scelta da un menu (**Lock**); sulla traccia, il **primo strumento** (o il device selezionato, opzione). Anche gli strumenti dentro un Rack vengono trovati (catene → device).
+- **Info dello strumento dalla Live API:** `class_name` (es. `InstrumentVector` = Wavetable, `Drift`, `Operator`, `OriginalSimpler`, `UltraAnalog`), il nome del device e i suoi parametri (`original_name`, `min`, `max`, `is_quantized`, `value_items`). Mandati a SY.CORE, che li usa per costruire le tabelle.
+- **Tabelle in SY.CORE, per tipo di strumento:** `liveTables[class_name] = [{ param: 'Filter 1 Freq', min?, max?, curve? }, …]` (fino a 16 slot; l'ordine = gli encoder). Tabelle di fabbrica per Wavetable, Drift, Operator, Simpler, Analog, Meld; quelle dell'utente le sostituiscono. Una **modalità Rack**: se il bersaglio è un Rack con le Macro e lo strumento non ha tabella, slot *n* = Macro *n*.
+- **Il controller va a SY.CORE, non a Live:** gli encoder si assegnano con MIDI Learn in SY.CORE come `map_slot_1…16` (come le azioni `rig_`); SY.CORE manda `{ type: 'map', slot, value }` via Link; il device muove il parametro. Nessuna porta dei controller abilitata in Live (la regola già imparata con il Launchpad), niente Ctrl+M.
+- **Muovere i parametri:** un **`live.remote~`** per slot (16), ripuntati sugli id dei parametri quando cambia il bersaglio: veloce, nessuna valanga di undo, nessuna automazione scritta. Opzione per dopo: scrittura con `LiveAPI set` per registrare l'automazione in Arrangement (vedi §12.5).
+- **Feedback:** il device osserva i 16 parametri (mouse, automazione, cambio preset) e manda i valori a SY.CORE: anelli LED / LED del MIDImix, e **pickup** (soft takeover) per le manopole assolute — una manopola prende il controllo solo quando incrocia il valore del parametro, niente salti.
+- **UI del device:** stato (Link, bersaglio), Follow / Lock + menu tracce, lo strumento trovato, i 16 slot con nome e valore del parametro (uno slot senza corrispondenza è attenuato), "Invia a SY.CORE" per uno strumento senza tabella.
+
+#### 12.3 Protocollo (Link v1, messaggi nuovi)
+| Direzione | Messaggio | Contenuto |
+|---|---|---|
+| SY.CORE → device | `map-tables` | le tabelle per `class_name` (alla connessione e a ogni modifica) |
+| SY.CORE → device | `map` | `slot` (0–15), `value` (0–1, normalizzato; parametri a scatti: indice) |
+| SY.CORE → device | `map-target` | `follow` oppure `{ track }` |
+| device → SY.CORE | `map-info` | traccia (nome, indice), strumento (`class_name`, nome), i suoi parametri, la tabella usata, la corrispondenza slot → parametro |
+| device → SY.CORE | `map-value` | `slot`, `value` (feedback, al massimo ogni 30 ms per slot) |
+| device → SY.CORE | `map-tracks` | l'elenco delle tracce (per il menu Lock in SY.CORE) |
+
+#### 12.4 Passi e stime
+1. **Spike (1 giorno):** un `[js]` (LiveAPI) in un device Max: tracce, Follow sulla traccia selezionata, parametri di Wavetable letti, 16 `live.remote~` ripuntati a un cambio traccia, un parametro mosso da un number box. Da misurare: ritardo di un cambio traccia, CPU con 16 slot mossi insieme, comportamento dentro un Rack.
+2. **Protocollo + bridge (1 giorno):** i messaggi del §12.3 in `link-core.js` (parse, limiti, test) e l'inoltro in `sycore-link.js`.
+3. **`sycore-map.amxd` (1-2 giorni):** generato come gli altri device (`make-patch.mjs`), UI del §12.2, feedback con limite di frequenza.
+4. **SY.CORE — tabelle (2 giorni):** store `liveTables` (export / import JSON, come i template del rig), editor: i parametri dello strumento ricevuti da Live in un selettore, ordine degli slot a trascinamento (come `VirtualInstrumentCcTableModal`), tabelle di fabbrica.
+5. **SY.CORE — controller (1-2 giorni):** `map_slot_1…16` assegnabili, pickup, feedback LED, una pagina "Map" nel Rig Controller (bersaglio, strumento, slot).
+6. **Dopo:** modalità Rack con le Macro; VST (parametri configurati, come i nativi); registrazione dell'automazione; il device selezionato in Live invece del primo strumento.
+
+**Test:** corrispondenza delle tabelle (unit: per `original_name`, parametri mancanti, a scatti), protocollo da entrambi i lati, pickup (unit), in Live: Follow su 4 tracce con Wavetable / Drift / Operator / un Rack, encoder di MIDImix e Launchkey, nessun valore appeso dopo un cambio traccia.
+
+#### 12.5 Decisioni e rischi
+| Tema | Scelta / mitigazione |
+|---|---|
+| I nomi dei parametri cambiano con la versione di Live o la lingua | Corrispondenza su `original_name` (non sul nome mostrato); uno slot senza corrispondenza viene saltato e mostrato attenuato |
+| `live.remote~` non registra l'automazione | Va bene per suonare; un'opzione "Registra automazione" più avanti scrive con `LiveAPI set` (crea passi di undo) |
+| Live API sul thread a bassa priorità di Max (lenta a un cambio traccia) | Ripuntare i 16 `live.remote~` una volta per cambio; i valori passano da `live.remote~` (veloce) |
+| Manopole assolute che saltano a un cambio traccia | Pickup in SY.CORE, con i valori del feedback |
+| Serve Max for Live (Suite, o Standard + add-on) | Come la F11; senza, restano il percorso MIDI e le mappature di Live |
+
 ## 5. Ordine e stime
 
 | # | Fase | Sforzo | Dipendenze |
@@ -520,6 +568,7 @@ Device costruito dalla patch pronta `m4l/spike/sycore-link-spike.maxpat` (Max MI
 | 9 | F9 Rig Controller: profili Launchpad Mini MK1 + MIDImix, opzioni di performance per traccia, poi OSC | M | F3 (azioni quantizzate); F7 per OSC |
 | 10 | F10 Scene del rig e marker (Live, Live Timeline, chase) | M-L | F1 (SPP), F2 (regole PC), F3 (Control Map), F9 |
 | 11 | F11 Bridge M4L "SY.CORE Link" e porta d'ingresso (WebSocket, note in beat, Live API) | M | prima lo spike; F1-F3 (il percorso MIDI che migliora); allarga la voce M4L della F7 |
+| 12 | F12 "SY.CORE Map": un solo device M4L, strumenti di Live comandati a tabella (encoder n → slot n → parametro) | M | F11 (Link, bridge); F9 (controller, MIDI Learn) |
 
 **MVP:** F1 + F2 + F3 + F4 + F6, circa 3,5 settimane. **Versione completa:** con F5, circa 4,5 settimane.
 
