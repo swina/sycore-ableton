@@ -50,7 +50,11 @@ function clean(v) { return String(v instanceof Array ? v.join(' ') : v).replace(
 function ids(list) { var r = []; for (var i = 0; i + 1 < list.length; i += 2) if (list[i] === 'id' && +list[i + 1]) r.push(+list[i + 1]); return r; }
 /** A LiveAPI object on an id (a new one each time, as in the spike: goto('id N') leaves it invalid). */
 function at(id) { return new LiveAPI(null, 'id ' + id); }
-function get(id, prop) { return at(id).get(prop); }
+/** A property of the object with that id; an invalid id is reported (with what was read) and gives []. */
+function get(id, prop) {
+  if (!(+id > 0)) { post('sycore-map: no object for "' + prop + '" (id ' + id + ')\n'); return []; }
+  return at(id).get(prop);
+}
 function num(id, prop) { return +get(id, prop)[0]; }
 function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].concat(a)); }
 
