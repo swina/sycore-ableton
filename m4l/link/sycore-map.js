@@ -79,7 +79,7 @@ function start() {
 // Notifications can't change the set: the work is deferred out of the callbacks.
 var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
-function safeTarget(id) { try { target(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
+function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
 function onSelected(args) {
   if (!follow || !args || args[0] !== 'selected_track') return;
   var id = +args[2];
@@ -137,7 +137,8 @@ function slotFor(pid, def) {
 }
 function norm(s, x) { return s.max > s.min ? Math.max(0, Math.min(1, (x - s.min) / (s.max - s.min))) : 0; }
 
-function target(trackId) {
+// (not named after a message: Max JS calls a function named like the message — "target follow" → target('follow'))
+function goTarget(trackId) {
   var t0 = Date.now();
   var found = findInstrument(ids(get(trackId, 'devices')), 0);
   var tname = clean(get(trackId, 'name'));
