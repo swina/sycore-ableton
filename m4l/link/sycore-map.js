@@ -159,6 +159,8 @@ function target(trackId) {
     rack: found.rack, mode: mode, slots: slots, ms: 0, note: '' };
   for (var k = 0; k < SLOTS; k++) { outlet(0, k, 'id', slots[k] ? slots[k].id : 0); watch(k, slots[k]); }
   T.ms = Date.now() - t0;
+  var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
+  post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + info.name + ' (' + info.cls + ') · ' + mode + ' ' + n + '/16 · ' + T.ms + ' ms\n');
   sendInfo();
   mgraphics.redraw();
 }
