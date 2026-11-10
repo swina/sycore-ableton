@@ -520,7 +520,7 @@ SY.CORE's **CC Table** idea brought to Live: encoder *n* of a controller always 
 - **Instrument info from the Live API:** `class_name` (e.g. `InstrumentVector` = Wavetable, `Drift`, `Operator`, `OriginalSimpler`, `UltraAnalog`), the device name, and its parameters (`original_name`, `min`, `max`, `is_quantized`, `value_items`). Sent to SY.CORE, which uses it to build the tables.
 - **Tables in SY.CORE, by instrument type:** `liveTables[class_name] = [{ param: 'Filter 1 Freq', min?, max?, curve? }, …]` (up to 16 slots; the order = the encoders). Factory tables for Wavetable, Drift, Operator, Simpler, Analog, Meld; user tables override them. A **Rack mode**: when the target is a Rack with Macros and the instrument has no table, slot *n* = Macro *n*.
 - **The controller goes to SY.CORE, not to Live:** the encoders are MIDI-learned in SY.CORE as `map_slot_1…16` (like the `rig_` actions); SY.CORE sends `{ type: 'map', slot, value }` through Link; the device moves the parameter. No controller ports enabled in Live (the rule already learnt with the Launchpad), no Ctrl+M.
-- **Moving the parameters:** one **`live.remote~`** per slot (16), re-pointed to the parameter ids when the target changes: fast, no undo flood, no automation written. Option for later: writing through `LiveAPI set` to record automation in Arrangement (see §12.5).
+- **Moving the parameters:** through the **Live API** (`set value`, like the mouse). Changed 2026-11-10: the first version used one `live.remote~` per slot, but a held parameter is greyed out in Live and, while held, Live kept playing / showing the value from before (the encoder seemed to snap back); removed. Cost: Live API writes enter Live's Undo history.
 - **Feedback:** the device observes the 16 parameters (mouse, automation, preset change) and sends their values to SY.CORE: LED rings / MIDImix LEDs, and **pickup** (soft takeover) for absolute knobs — a knob takes over only when it crosses the parameter's value, no jumps.
 - **Device UI:** status (Link, target), Follow / Lock + track menu, the instrument found, the 16 slots with parameter name and value (a slot without a match is shown dim), "Send to SY.CORE" for an instrument without a table.
 
@@ -548,8 +548,8 @@ SY.CORE's **CC Table** idea brought to Live: encoder *n* of a controller always 
 | Topic | Choice / mitigation |
 |---|---|
 | Parameter names change with Live versions or localization | Match on `original_name` (not the displayed name); a slot without a match is skipped and shown dim |
-| Automation not recorded by `live.remote~` | Fine for playing; a later "Record automation" option writes through `LiveAPI set` (creates undo steps) |
-| Live API on Max's low-priority thread (slow on a track change) | Re-point the 16 `live.remote~` once per change; values go through `live.remote~` (audio-rate, fast) |
+| Live API writes enter the Undo history | Accepted (2026-11-10): `live.remote~` avoided it but held the old value while greyed out |
+| Live API on Max's low-priority thread (slow on a track change) | Parameter ids cached per device; the values written straight to the cached parameter objects |
 | Absolute knobs jumping on a track change | Pickup in SY.CORE, with the feedback values |
 | Requires Max for Live (Suite, or Standard + add-on) | As P11; without it, the MIDI path and Live's own mappings stay |
 

@@ -520,7 +520,7 @@ L'idea della **CC Table** di SY.CORE portata in Live: l'encoder *n* di un contro
 - **Info dello strumento dalla Live API:** `class_name` (es. `InstrumentVector` = Wavetable, `Drift`, `Operator`, `OriginalSimpler`, `UltraAnalog`), il nome del device e i suoi parametri (`original_name`, `min`, `max`, `is_quantized`, `value_items`). Mandati a SY.CORE, che li usa per costruire le tabelle.
 - **Tabelle in SY.CORE, per tipo di strumento:** `liveTables[class_name] = [{ param: 'Filter 1 Freq', min?, max?, curve? }, …]` (fino a 16 slot; l'ordine = gli encoder). Tabelle di fabbrica per Wavetable, Drift, Operator, Simpler, Analog, Meld; quelle dell'utente le sostituiscono. Una **modalità Rack**: se il bersaglio è un Rack con le Macro e lo strumento non ha tabella, slot *n* = Macro *n*.
 - **Il controller va a SY.CORE, non a Live:** gli encoder si assegnano con MIDI Learn in SY.CORE come `map_slot_1…16` (come le azioni `rig_`); SY.CORE manda `{ type: 'map', slot, value }` via Link; il device muove il parametro. Nessuna porta dei controller abilitata in Live (la regola già imparata con il Launchpad), niente Ctrl+M.
-- **Muovere i parametri:** un **`live.remote~`** per slot (16), ripuntati sugli id dei parametri quando cambia il bersaglio: veloce, nessuna valanga di undo, nessuna automazione scritta. Opzione per dopo: scrittura con `LiveAPI set` per registrare l'automazione in Arrangement (vedi §12.5).
+- **Muovere i parametri:** con la **Live API** (`set value`, come il mouse). Cambiato il 2026-11-10: la prima versione usava un `live.remote~` per slot, ma un parametro tenuto è grigio in Live e, mentre è tenuto, Live continuava a suonare / mostrare il valore di prima (l'encoder sembrava tornare indietro); tolto. Costo: le scritture via Live API entrano nella cronologia Undo di Live.
 - **Feedback:** il device osserva i 16 parametri (mouse, automazione, cambio preset) e manda i valori a SY.CORE: anelli LED / LED del MIDImix, e **pickup** (soft takeover) per le manopole assolute — una manopola prende il controllo solo quando incrocia il valore del parametro, niente salti.
 - **UI del device:** stato (Link, bersaglio), Follow / Lock + menu tracce, lo strumento trovato, i 16 slot con nome e valore del parametro (uno slot senza corrispondenza è attenuato), "Invia a SY.CORE" per uno strumento senza tabella.
 
@@ -548,8 +548,8 @@ L'idea della **CC Table** di SY.CORE portata in Live: l'encoder *n* di un contro
 | Tema | Scelta / mitigazione |
 |---|---|
 | I nomi dei parametri cambiano con la versione di Live o la lingua | Corrispondenza su `original_name` (non sul nome mostrato); uno slot senza corrispondenza viene saltato e mostrato attenuato |
-| `live.remote~` non registra l'automazione | Va bene per suonare; un'opzione "Registra automazione" più avanti scrive con `LiveAPI set` (crea passi di undo) |
-| Live API sul thread a bassa priorità di Max (lenta a un cambio traccia) | Ripuntare i 16 `live.remote~` una volta per cambio; i valori passano da `live.remote~` (veloce) |
+| Le scritture via Live API entrano nella cronologia Undo | Accettato (2026-11-10): `live.remote~` lo evitava ma teneva il valore vecchio mentre era grigio |
+| Live API sul thread a bassa priorità di Max (lenta a un cambio traccia) | Id dei parametri in cache per device; i valori scritti direttamente sugli oggetti parametro in cache |
 | Manopole assolute che saltano a un cambio traccia | Pickup in SY.CORE, con i valori del feedback |
 | Serve Max for Live (Suite, o Standard + add-on) | Come la F11; senza, restano il percorso MIDI e le mappature di Live |
 

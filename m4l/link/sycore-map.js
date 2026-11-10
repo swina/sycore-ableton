@@ -8,16 +8,16 @@
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params",
 //        "variation <index | next | prev | store | delete>" (a Rack's Macro Variations), "randomize" (its Macros)
-//   out 0: "<slot> id <param id>" (a live.remote~ takes the parameter while the slot moves; id 0 = let go)
-//          / "<slot> <value>" (parameter units)
-//   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
+//   A slot moves its parameter through the Live API (like the mouse: no lock, the knob in Live follows;
+//   no live.remote~ — it greyed the parameter out and Live kept playing the old value while it held it).
+//   out 0: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
 //          "maptracks <json>", "mapparams <json>"; "followtoggle <0|1>" (SY.CORE changed the target: the toggle follows)
-//   out 2: to the view: "state <json>" (header, tag, slots), "val <slot> <0–1>"
+//   out 1: to the view: "state <json>" (header, tag, slots), "val <slot> <0–1>"
 // No autowatch: a reloaded script would get no live.thisdevice bang (its only one, at load) — reload the device.
 // Parameters are read once per device (ids cached by device id): only the table's 16 on a track change.
 autowatch = 0;
 inlets = 1;
-outlets = 3;
+outlets = 2;
 
 var SLOTS = 16;
 // Factory tables (SY.CORE's tables replace them; variables are not named like the messages "tables", "follow"): slot = { param: original_name, min?, max?, int? }.
@@ -59,7 +59,7 @@ function get(id, prop) {
   return at(id).get(prop);
 }
 function num(id, prop) { return +get(id, prop)[0]; }
-function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].concat(a)); }
+function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [0].concat(a)); }
 
 // ── init ──
 function bang() {
@@ -85,6 +85,7 @@ var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
 var DEBUG = 0;   // 1: selections, targets and left-out parameters in the Max console
+var DEBUG_VAL = 0;   // 1: every slot value sent, the parameter's value after it, the observer's reports
 function onSelected(args) {
   if (DEBUG) post('sycore-map: selected ' + (args ? args.join(' ') : '?') + (following ? '' : ' (lock)') + '\n');
   if (!following || !args || args[0] !== 'selected_track') return;
@@ -259,7 +260,7 @@ function goTarget(trackId) {
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
     rack: found.rack, rackId: found.macros ? found.rackId : 0, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
   watchVariations(T.rackId);
-  for (var k = 0; k < SLOTS; k++) { release(k); watch(k, slots[k]); }
+  for (var k = 0; k < SLOTS; k++) watch(k, slots[k]);
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
   post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + (inst ? info.name + ' (' + info.cls + ')' : '(Rack)') +
@@ -346,27 +347,16 @@ function randomizeMacros() {
 }
 
 // ── values ──
-// A live.remote~ takes its parameter exclusively (greyed out in Live: no mouse, no automation): a slot
-// holds it only while it moves, and lets it go 500 ms after the last move (the value stays).
-var held = [], heldAt = [];
-var HOLD_MS = 500;
-function release(s) { if (held[s]) outlet(0, s, 'id', 0); held[s] = 0; }
-var releaser = new Task(function () {
-  var now = Date.now();
-  for (var s = 0; s < SLOTS; s++) if (held[s] && now - heldAt[s] > HOLD_MS) release(s);
-}, this);
-releaser.interval = 100;
-releaser.repeat();
-/** Slot s to v (0–1): its range, whole numbers when int. */
+/** Slot s to v (0–1): its range, whole numbers when int; written through the Live API (like the mouse). */
 function setSlot(s, v) {
   var p = T.slots[s];
   if (!p) return;
-  if (held[s] !== p.id) { outlet(0, s, 'id', p.id); held[s] = p.id; }
-  heldAt[s] = Date.now();
   p.value = Math.max(0, Math.min(1, v));
   var x = p.min + p.value * (p.max - p.min);
-  outlet(0, s, p.int ? Math.round(x) : x);
-  outlet(2, 'val', s, p.value);
+  if (p.int) x = Math.round(x);
+  try { (obs[s] || at(p.id)).set('value', x); } catch (e) { post('sycore-map: set ' + p.name + ' failed: ' + e + '\n'); }
+  if (DEBUG_VAL) post('sycore-map: set ' + s + ' ' + p.name + ' x=' + x + ' → live ' + num(p.id, 'value') + '\n');
+  outlet(1, 'val', s, p.value);
 }
 /** A value observer on slot s's parameter (a new one per target: an observer on "id 0" is an invalid path). */
 function makeObserver(s, pid) {
@@ -375,6 +365,7 @@ function makeObserver(s, pid) {
     var p = T.slots[s];
     if (!p) return;
     var v = norm(p, +args[1]);
+    if (DEBUG_VAL) post('sycore-map: obs ' + s + ' ' + p.name + ' raw=' + (+args[1]).toFixed(3) + ' v=' + v.toFixed(3) + ' (had ' + p.value.toFixed(3) + ')\n');
     if (p.seen && Math.abs(v - p.value) < 1e-4) return;
     p.seen = 1; p.value = v; dirty[s] = 1;
   }, 'id ' + pid);
@@ -388,7 +379,7 @@ function watch(s, slot) {
 
 var flush = new Task(function () {
   var any = 0;
-  for (var s in dirty) { var v = T.slots[s] ? T.slots[s].value : 0; toBridge('mapvalue', +s, v); outlet(2, 'val', +s, v); any = 1; }
+  for (var s in dirty) { var v = T.slots[s] ? T.slots[s].value : 0; toBridge('mapvalue', +s, v); outlet(1, 'val', +s, v); any = 1; }
   dirty = {};
 }, this);
 flush.interval = 30;
@@ -402,7 +393,7 @@ function sendView() {
   var tag = T.note || (T.mode === 'auto' ? 'AUTO · ' + T.cls : T.mode === 'macros' ? 'MACROS' : T.mode === 'mixed' ? T.nMacros + ' MACROS + ' + T.cls
     : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + (T.cls || 'Rack') : '');
   if (!T.note && T.rackId && T.varCount) tag = 'VAR ' + (T.varSel >= 0 ? T.varSel + 1 : '–') + '/' + T.varCount + ' · ' + tag;
-  outlet(2, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
+  outlet(1, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
     slots: T.slots.map(function (x) { return x ? { name: x.name, value: x.value } : null; }) }));
 }
 
@@ -418,8 +409,8 @@ function anything() {
       break;
     case 'value': setSlot(a[0] | 0, +a[1]); break;
     case 'target':
-      if (a[0] === 'follow') { setFollow(1); outlet(1, 'followtoggle', 1); }
-      else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
+      if (a[0] === 'follow') { setFollow(1); outlet(0, 'followtoggle', 1); }
+      else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(0, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
     case 'variation': recallVariation(a[0]); break;

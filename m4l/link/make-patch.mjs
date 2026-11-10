@@ -179,19 +179,32 @@ const bridge = build([
   // the SY.CORE Map device (P12)
   ['maps', `s ${MAP_OUT}`, 1, 0, 1140, 300],
   ['mapr', `r ${MAP_IN}`, 1, 1, 1140, 220],
-  // midi3 b1 b2 b3 beat → delay = (beat × resolution − ticks now) in ms, from Live's transport in Max
+  // midi3 b1 b2 b3 beat → delay = (beat × resolution − ticks now) in ms, from Live's transport in Max.
+  // Due now (≤ 0.5 ms: late, or beat -1): straight out through [gate], not through [pipe] — a click
+  // on a slot sends a burst of these (note-offs, All Notes Off, the first note-ons), and Live crashed
+  // inside [pipe] on one (2026-11-11, MaxPlug.dll access violation with pipe.mxe64 on the stack).
   ['t3', 't l b', 1, 2, 30, 330],
   ['tr3', 'transport', 2, 9, 120, 360],
-  ['ex3', 'expr max(0.\\, ($f1*$f4 - $f2)*60000./($f3*$f4))', 4, 1, 30, 420],
-  ['up3', 'unpack 0 0 0 0.', 1, 4, 30, 390],
-  ['pipe3', 'pipe 0 0 0 0', 4, 3, 30, 450],
-  ['pk3', 'pack 0 0 0', 3, 1, 30, 480],
+  ['sl3', 'zl.slice 3', 2, 2, 30, 360],
+  ['ex3', 'expr max(0.\\, ($f1*$f4 - $f2)*60000./($f3*$f4))', 4, 1, 120, 390],
+  ['td3', 't f f', 1, 2, 120, 410],
+  ['gt3', '> 0.5', 2, 1, 200, 430],
+  ['gp3', '+ 1', 2, 1, 200, 450],
+  ['g3', 'gate 2', 2, 2, 30, 430],
+  ['up3', 'unpack 0 0 0', 1, 3, 90, 450],
+  ['pipe3', 'pipe 0 0 0 0', 4, 3, 90, 470],
+  ['pk3', 'pack 0 0 0', 3, 1, 90, 490],
   ['t2', 't l b', 1, 2, 380, 330],
   ['tr2', 'transport', 2, 9, 470, 360],
-  ['ex2', 'expr max(0.\\, ($f1*$f4 - $f2)*60000./($f3*$f4))', 4, 1, 380, 420],
-  ['up2', 'unpack 0 0 0.', 1, 3, 380, 390],
-  ['pipe2', 'pipe 0 0 0', 3, 2, 380, 450],
-  ['pk2', 'pack 0 0', 2, 1, 380, 480],
+  ['sl2', 'zl.slice 2', 2, 2, 380, 360],
+  ['ex2', 'expr max(0.\\, ($f1*$f4 - $f2)*60000./($f3*$f4))', 4, 1, 470, 390],
+  ['td2', 't f f', 1, 2, 470, 410],
+  ['gt2', '> 0.5', 2, 1, 550, 430],
+  ['gp2', '+ 1', 2, 1, 550, 450],
+  ['g2', 'gate 2', 2, 2, 380, 430],
+  ['up2', 'unpack 0 0', 1, 2, 440, 450],
+  ['pipe2', 'pipe 0 0 0', 3, 2, 440, 470],
+  ['pk2', 'pack 0 0', 2, 1, 440, 490],
   ['tclr', 't clear clear', 1, 2, 330, 340],
   ['snd', `s ${SEND_NAME}`, 1, 0, 250, 520],
   ...filterBoxes(30, 520, [66, 90, 62, 18]),
@@ -226,16 +239,23 @@ const bridge = build([
   ['route', 6, 'rigs', 0], ['rigr', 0, 'node', 0],
   ['route', 7, 'maps', 0], ['mapr', 0, 'node', 0],
   ['node', 0, 'route', 0],
-  ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'up3', 0],
+  // [zl.slice] sends the beat (right) before the bytes (left): the delay and the gate's way are set first.
+  ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'sl3', 0],
   ['tr3', 7, 'ex3', 1], ['tr3', 4, 'ex3', 2], ['tr3', 3, 'ex3', 3],
-  ['up3', 3, 'ex3', 0], ['ex3', 0, 'pipe3', 3], ['up3', 2, 'pipe3', 2], ['up3', 1, 'pipe3', 1], ['up3', 0, 'pipe3', 0],
+  ['sl3', 1, 'ex3', 0], ['ex3', 0, 'td3', 0], ['td3', 1, 'pipe3', 3], ['td3', 0, 'gt3', 0], ['gt3', 0, 'gp3', 0], ['gp3', 0, 'g3', 0],
+  ['sl3', 0, 'g3', 1], ['g3', 1, 'up3', 0],
+  ['up3', 2, 'pipe3', 2], ['up3', 1, 'pipe3', 1], ['up3', 0, 'pipe3', 0],
   ['pipe3', 0, 'pk3', 0], ['pipe3', 1, 'pk3', 1], ['pipe3', 2, 'pk3', 2],
-  ['route', 1, 't2', 0], ['t2', 1, 'tr2', 0], ['t2', 0, 'up2', 0],
+  ['route', 1, 't2', 0], ['t2', 1, 'tr2', 0], ['t2', 0, 'sl2', 0],
   ['tr2', 7, 'ex2', 1], ['tr2', 4, 'ex2', 2], ['tr2', 3, 'ex2', 3],
-  ['up2', 2, 'ex2', 0], ['ex2', 0, 'pipe2', 2], ['up2', 1, 'pipe2', 1], ['up2', 0, 'pipe2', 0],
+  ['sl2', 1, 'ex2', 0], ['ex2', 0, 'td2', 0], ['td2', 1, 'pipe2', 2], ['td2', 0, 'gt2', 0], ['gt2', 0, 'gp2', 0], ['gp2', 0, 'g2', 0],
+  ['sl2', 0, 'g2', 1], ['g2', 1, 'up2', 0],
+  ['up2', 1, 'pipe2', 1], ['up2', 0, 'pipe2', 0],
   ['pipe2', 0, 'pk2', 0], ['pipe2', 1, 'pk2', 1],
-  // Each timed message: to the receivers, and through this track's channel filter to its own output.
+  // Each message: to the receivers, and through this track's channel filter to its own output —
+  // from [pipe] (later) or straight from [gate] (now).
   ['pk3', 0, 'snd', 0], ['pk2', 0, 'snd', 0], ['pk3', 0, 'ft', 0], ['pk2', 0, 'ft', 0],
+  ['g3', 0, 'snd', 0], ['g2', 0, 'snd', 0], ['g3', 0, 'ft', 0], ['g2', 0, 'ft', 0],
   ...filterLines, ['fg', 0, 'iter', 0], ['iter', 0, 'out', 0],
   ['route', 2, 'tclr', 0], ['tclr', 0, 'pipe3', 0], ['tclr', 1, 'pipe2', 0],
   ['route', 3, 'pinfo', 0], ['pinfo', 0, 'info', 0],
@@ -318,23 +338,15 @@ const rig = build([
 
 // ── Map (P12) ───────────────────────────────────────────────────────────────
 // One device in the set drives the instrument of a track by table: [js sycore-map.js] the logic (Live API),
-// [jsui sycore-map-view.js] the 16 slots drawn (a reload of the view loses nothing); each slot moves its
-// parameter through a [live.remote~]. Follow: the selected track.
+// [jsui sycore-map-view.js] the 16 slots drawn (a reload of the view loses nothing); the logic moves the
+// parameters through the Live API (no live.remote~). Follow: the selected track.
 // The track's MIDI passes through (the device can sit on an instrument track too).
-const MAP_W = 470, SLOTS = 16, REMOTES = SLOTS;
-const mapSlots = [], mapLines = [];
-for (let s = 0; s < REMOTES; s++) {
-  const x = 30 + s * 110;
-  mapSlots.push(['ri' + s, 'route id', 1, 2, x, 300], ['pi' + s, 'prepend id', 1, 1, x, 330], ['lr' + s, 'live.remote~', 2, 0, x, 370]);
-  mapLines.push(['rs', s, 'ri' + s, 0], ['ri' + s, 0, 'pi' + s, 0], ['pi' + s, 0, 'lr' + s, 1], ['ri' + s, 1, 'lr' + s, 0]);
-}
+const MAP_W = 470;
 const map = build([
   ['dev', 'live.thisdevice', 1, 3, 30, 20],
   ['mr', `r ${MAP_OUT}`, 1, 1, 200, 20],
-  ['logic', `js ${LINK_DIR}/sycore-map.js`, 1, 3, 30, 90],
+  ['logic', `js ${LINK_DIR}/sycore-map.js`, 1, 2, 30, 90],
   ['view', '', 1, 1, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map-view.js`, border: 0, patching_rect: [500, 120, 440, 134] }],
-  ['rs', 'route ' + Array.from({ length: REMOTES }, (_, i) => i).join(' '), 1, REMOTES + 1, 30, 270],
-  ...mapSlots,
   // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
   ['rf', 'route followtoggle', 1, 2, 500, 270],
   ['fset', 'prepend set', 1, 1, 500, 300],
@@ -356,9 +368,8 @@ const map = build([
   ['ttl', 'SY.CORE MAP', 1, 0, 600, 20, title([10, 5, 120, 20])],
 ], [
   ['dev', 0, 'logic', 0], ['mr', 0, 'logic', 0],
-  ['logic', 0, 'rs', 0], ...mapLines,
-  ['logic', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'ms', 0],
-  ['logic', 2, 'view', 0], ['view', 0, 'logic', 0],
+  ['logic', 0, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'ms', 0],
+  ['logic', 1, 'view', 0], ['view', 0, 'logic', 0],
   ['fol', 0, 'fp', 0], ['fp', 0, 'logic', 0],
   ['mi', 0, 'mo', 0],
 ], { width: MAP_W });
