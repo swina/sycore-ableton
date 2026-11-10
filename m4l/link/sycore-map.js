@@ -62,21 +62,25 @@ function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].c
 // ── init ──
 function bang() {
   if (ready) return;
+  try { start(); } catch (e) { post('sycore-map: start failed: ' + e + '\n'); }
+}
+function start() {
   ready = 1;
   view = new LiveAPI(onSelected, 'live_set view');
   view.property = 'selected_track';
   setObs = new LiveAPI(onTracks, 'live_set');
   setObs.property = 'tracks';
-  for (var s = 0; s < SLOTS; s++) obs.push(makeObserver(s));
-  readTracks();
+  for (var s = 0; s < SLOTS; s++) obs.push(null);
   toBridge('mapready');
+  readTracks();
   var sel = ids(view.get('selected_track'))[0];
-  if (sel) target(sel);
+  if (sel) safeTarget(sel);
 }
 
 // Notifications can't change the set: the work is deferred out of the callbacks.
 var pendingTrack = 0;
-var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; target(t); } }, this);
+var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
+function safeTarget(id) { try { target(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
 function onSelected(args) {
   if (!follow || !args || args[0] !== 'selected_track') return;
   var id = +args[2];
@@ -166,7 +170,7 @@ function target(trackId) {
 }
 function trackIndex(id) { for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return i; return -1; }
 /** The target again (new tables, or SY.CORE picked a track). */
-function retarget() { if (T.trackId) { var id = T.trackId; T.trackId = 0; target(id); } }
+function retarget() { if (T.trackId) { var id = T.trackId; T.trackId = 0; safeTarget(id); } }
 
 function sendInfo() {
   toBridge('mapinfo', JSON.stringify({
@@ -187,7 +191,8 @@ function setSlot(s, v) {
   outlet(0, s, p.int ? Math.round(x) : x);
   mgraphics.redraw();
 }
-function makeObserver(s) {
+/** A value observer on slot s's parameter (a new one per target: an observer on "id 0" is an invalid path). */
+function makeObserver(s, pid) {
   var o = new LiveAPI(function (args) {
     if (!args || args[0] !== 'value') return;
     var p = T.slots[s];
@@ -195,16 +200,13 @@ function makeObserver(s) {
     var v = norm(p, +args[1]);
     if (Math.abs(v - p.value) < 1e-4) return;
     p.value = v; dirty[s] = 1;
-  }, 'id 0');
+  }, 'id ' + pid);
+  o.property = 'value';
   return o;
 }
 function watch(s, slot) {
-  var o = obs[s];
-  o.property = '';
-  if (!slot) return;
-  if (typeof o.goto === 'function') o.goto('id ' + slot.id);
-  else { o = obs[s] = makeObserver(s); o.path = 'id ' + slot.id; }
-  o.property = 'value';
+  if (obs[s]) { obs[s].property = ''; obs[s] = null; }
+  if (slot) obs[s] = makeObserver(s, slot.id);
 }
 var flush = new Task(function () {
   var any = 0;
@@ -228,7 +230,7 @@ function anything() {
     case 'value': setSlot(a[0] | 0, +a[1]); break;
     case 'target':
       if (a[0] === 'follow') { setFollow(1); outlet(1, 'followtoggle', 1); }
-      else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); target(tracks[a[0] | 0].id); }
+      else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
   }
@@ -236,7 +238,7 @@ function anything() {
 /** Follow the selected track (on: go to it now) or stay on the target (Lock). */
 function setFollow(v) {
   follow = v ? 1 : 0;
-  if (follow && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) target(sel); }
+  if (follow && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) safeTarget(sel); }
   mgraphics.redraw();
 }
 /** Every parameter of the instrument driven now (for SY.CORE's table editor): slow, on request only. */
