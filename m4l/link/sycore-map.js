@@ -59,12 +59,23 @@ function num(id, prop) { return +get(id, prop)[0]; }
 function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].concat(a)); }
 
 // ── init ──
-function bang() {
+function bang() { boot(); }
+function boot() {
   if (ready) return;
-  try { start(); } catch (e) { post('sycore-map: start failed: ' + e + '\n'); }
+  try { start(); } catch (e) { ready = 0; post('sycore-map: start failed: ' + e + '\n'); }
 }
+// The script may be (re)loaded after live.thisdevice's only bang (autowatch, a reload): it starts by
+// itself as soon as the Live API answers.
+post('sycore-map: script loaded\n');
+var booter = new Task(function () {
+  if (ready) { booter.cancel(); return; }
+  try { if (+new LiveAPI(null, 'live_set').id > 0) boot(); } catch (e) { /* not ready yet */ }
+}, this);
+booter.interval = 500;
+booter.repeat();
 function start() {
   ready = 1;
+  post('sycore-map: started\n');
   view = new LiveAPI(onSelected, 'live_set view');
   view.property = 'selected_track';
   setObs = new LiveAPI(onTracks, 'live_set');
