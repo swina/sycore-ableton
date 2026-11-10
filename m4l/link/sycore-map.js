@@ -1,8 +1,9 @@
 // sycore-map.js — the SY.CORE Map device's logic ([js], Max JS / ES5; P12; drawn by sycore-map-view.js): one device in the set drives
 // the instrument of a track by table — slot n (an encoder in SY.CORE) → a parameter, by original_name.
 //   Target: the track selected in Live (Follow) or the one SY.CORE picks; a track without an instrument
-//   (e.g. this device's own) keeps the last one. On the track, the first instrument; a Rack with mapped
-//   Macros → its 16 Macros; a Rack without → the first instrument in its chains.
+//   (e.g. this device's own) keeps the last one. On the track, the first instrument by its table; a Rack
+//   with mapped Macros → its configured Macros first, then the first instrument's table (parameters a
+//   Macro holds left out) up to 16; a Rack without → the first instrument in its chains.
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params"
@@ -82,7 +83,7 @@ function start() {
 var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
-var DEBUG = 1;   // 1: selections, targets and slot moves in the Max console
+var DEBUG = 0;   // 1: selections, targets and left-out parameters in the Max console
 function onSelected(args) {
   if (DEBUG) post('sycore-map: selected ' + (args ? args.join(' ') : '?') + (following ? '' : ' (lock)') + '\n');
   if (!following || !args || args[0] !== 'selected_track') return;
@@ -101,29 +102,29 @@ function readTracks() {
 }
 
 // ── the target ──
-/** The first instrument in a list of device ids: { id, rack } — a Rack with mapped Macros is the target
- *  itself (macros); without, the first instrument in any of its chains, else its Macros. */
+/**
+ * The instrument of a list of device ids: { id (the instrument, or the Rack), rackId?, rack (name), macros }.
+ * A Rack with mapped Macros (the user's rule, 2026-11-10): its configured Macros first, then the table of
+ * the first instrument in its chains for the slots left (macros: 1). A Rack without: the instrument
+ * inside, by its table. An outer Rack's Macros win over an inner one's.
+ */
 function findInstrument(devIds, depth) {
   for (var i = 0; i < devIds.length; i++) {
     var d = devIds[i];
     if (num(d, 'type') !== 1) continue;                       // 1 = instrument
     if (num(d, 'can_have_chains') && depth < 4) {
-      // A Rack (the user's choice, 2026-11-10): the instrument inside when it has a table (encoder n does
-      // the same on every Drift); else the Rack's mapped Macros; else the instrument inside (no table).
       var rackName = clean(get(d, 'name')), inner = null;
       var chains = ids(get(d, 'chains'));
       for (var c = 0; c < chains.length && !inner; c++) inner = findInstrument(ids(get(chains[c], 'devices')), depth + 1);
-      if (inner && !inner.rack) inner.rack = rackName;
-      if (inner) inner.racks = (inner.racks || []).concat([d]);
-      if (inner && !inner.macros && tableSet[deviceInfo(inner.id).cls]) return inner;
-      if (num(d, 'has_macro_mappings')) return { id: d, macros: 1, rack: null };
-      return inner || { id: d, macros: 1, rack: null };
+      if (num(d, 'has_macro_mappings')) return { id: inner ? inner.id : d, rackId: d, rack: rackName, macros: 1 };
+      if (inner) { if (!inner.rack) inner.rack = rackName; return inner; }
+      return { id: d, rackId: d, rack: rackName, macros: 1 };   // an empty Rack: its Macros
     }
-    return { id: d, macros: 0, rack: null };
+    return { id: d, rackId: 0, rack: null, macros: 0 };
   }
   return null;
 }
-/** The device's class, name and parameter ids by original_name — read once, then cached. */
+/** The device's class, name and parameter ids — read once, then cached. */
 // Reading every parameter's name is the slow part (~3 ms each: Analog's 172 ≈ 500 ms). A class's
 // parameters are always in the same order, so their positions are learnt once per class (classIndex)
 // and another device of that class only checks the names of the parameters it uses.
@@ -165,17 +166,38 @@ function slotFor(pid, def) {
   if (def.max !== undefined && def.max !== null) s.max = Math.min(max, def.max);
   if (s.max <= s.min) { s.min = min; s.max = max; }
   s.value = 0;          // the value comes from the slot's observer (it reports it when set up)
-  // state: 0 active, 1 inactive (no effect now), 2 disabled — e.g. mapped to a Rack's Macro, which holds it
-  s.state = num(pid, 'state');
-  if (DEBUG && s.state) post('sycore-map: "' + s.param + '" state ' + s.state + (s.state === 2 ? ' (disabled: a Macro holds it?)' : '') + '\n');
   return s;
 }
 function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
 function norm(s, x) { return s.max > s.min ? Math.max(0, Math.min(1, (x - s.min) / (s.max - s.min))) : 0; }
 
+/** A Rack's configured Macros: those Live has named after a mapping (a free one is "Macro n"). */
+function rackMacros(rackId) {
+  var ri = deviceInfo(rackId), out = [];
+  for (var m = 1; m <= 16; m++) {
+    var mid = paramId(ri, 'Macro ' + m);
+    if (!mid) continue;
+    var label = clean(get(mid, 'name'));
+    if (label !== 'Macro ' + m) out.push(slotFor(mid, { param: 'Macro ' + m, label: label }));
+  }
+  return out;
+}
+/** The table's slots of an instrument, skipping the parameters a Macro holds (state 2: disabled) and
+ *  those in `skip`, at most `room`. */
+function tableSlots(info, table, room) {
+  var out = [];
+  for (var s = 0; s < table.length && out.length < room; s++) {
+    var def = table[s], pid = def && paramId(info, def.param);
+    if (!pid) continue;
+    if (num(pid, 'state') === 2) { if (DEBUG) post('sycore-map: "' + def.param + '" is held by a Macro: left out\n'); continue; }
+    out.push(slotFor(pid, def));
+  }
+  return out;
+}
+
 // (not named after a message: Max JS calls a function named like the message — "target follow" → target('follow'))
 var foundCache = {};   // track id → { key: its device ids, found }: the instrument search skipped while the devices stay
-var slotCache = {};    // device id → its 16 slots (name, range…), values apart
+var slotCache = {};    // instrument / Rack → its 16 slots (name, range…), values apart
 function goTarget(trackId) {
   if (DEBUG) post('sycore-map: target ' + trackId + '\n');
   var t0 = Date.now();
@@ -189,110 +211,28 @@ function goTarget(trackId) {
     sendView();
     return;
   }
-  var info = deviceInfo(found.id), slots = [], mode;
-  var sc = slotCache[found.id];
-  if (sc) {
-    mode = sc.mode;
-    for (var c = 0; c < SLOTS; c++) slots.push(sc.slots[c] ? copy(sc.slots[c]) : null);
-  } else if (found.macros) {
-    mode = 'macros';
-    for (var m = 0; m < SLOTS; m++) { var mp = paramId(info, 'Macro ' + (m + 1)); slots.push(mp ? slotFor(mp, { param: 'Macro ' + (m + 1) }) : null); }
-  } else {
-    var table = tableSet[info.cls];
-    mode = table ? 'table' : 'none';
-    for (var s = 0; s < SLOTS; s++) {
-      var def = table && table[s], pid = def && paramId(info, def.param);
-      slots.push(pid ? slotFor(pid, def) : null);
-    }
+  var inst = found.id !== found.rackId ? found.id : 0;          // the instrument (0: an empty Rack)
+  var info = deviceInfo(found.id), table = inst ? tableSet[info.cls] : null;
+  var ck = (found.macros ? 'r' + found.rackId + ':' : '') + found.id, sc = slotCache[ck];
+  var slots, mode, nMacros = 0;
+  if (sc) { mode = sc.mode; nMacros = sc.nMacros; slots = sc.slots.map(function (x) { return x ? copy(x) : null; }); }
+  else {
+    slots = found.macros ? rackMacros(found.rackId) : [];
+    nMacros = slots.length;
+    if (table) slots = slots.concat(tableSlots(info, table, SLOTS - slots.length));
+    mode = !slots.length ? 'none' : nMacros === slots.length ? 'macros' : nMacros ? 'mixed' : 'table';
+    while (slots.length < SLOTS) slots.push(null);
+    slotCache[ck] = { mode: mode, nMacros: nMacros, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   }
-  if (!sc) slotCache[found.id] = { mode: mode, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
-  T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: info.name, cls: info.cls,
-    rack: found.rack, mode: mode, slots: slots, ms: 0, note: '' };
-  if (scan) endScan();
+  T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
+    rack: found.rack, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
   for (var k = 0; k < SLOTS; k++) { release(k); watch(k, slots[k]); }
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
-  post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + info.name + ' (' + info.cls + ') · ' + mode + ' ' + n + '/16 · ' + T.ms + ' ms\n');
+  post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + (inst ? info.name + ' (' + info.cls + ')' : '(Rack)') +
+    ' · ' + (nMacros ? nMacros + ' Macros + ' : '') + (n - nMacros) + ' from the table · ' + T.ms + ' ms\n');
   sendInfo();
   sendView();
-  if (mode === 'table' && found.racks && !scanned[found.id]) startScan(found);
-}
-
-// ── Macros holding the table's parameters ──
-// In a Rack, a parameter mapped to a Macro follows the Macro only (Live's factory presets: LP Freq ←
-// Macro 1 "Filter Freq"): the slot must drive that Macro. The Live API doesn't tell which Macro holds
-// what, so on the first visit each mapped Rack's visible Macros are nudged one by one (a 17th
-// live.remote~: no undo steps) and the slots whose parameter moves are re-pointed to that Macro; the
-// Macro goes back to its value at once. Remembered per instrument (scanned).
-var SCAN = SLOTS;            // the scanning live.remote~
-var scanned = {};            // instrument id → 1
-var scan = null;             // { devId, macros: [{ id, n, label, v0 }], i, seq0: [], phase }
-var moved = [];              // per slot: a counter of value changes (observers)
-function startScan(found) {
-  var list = [];
-  for (var r = 0; r < found.racks.length; r++) {
-    var rk = found.racks[r];
-    if (!num(rk, 'has_macro_mappings')) continue;
-    var ri = deviceInfo(rk), vis = num(rk, 'visible_macro_count') || 8;
-    for (var m = 1; m <= Math.min(16, vis); m++) {
-      var mid = paramId(ri, 'Macro ' + m);
-      if (mid) list.push({ id: mid, n: m, label: clean(get(mid, 'name')), rack: clean(get(rk, 'name')) });
-    }
-  }
-  scanned[found.id] = 1;
-  if (!list.length) return;
-  scan = { devId: found.id, macros: list, i: -1, phase: 0, t0: Date.now(), found: 0 };
-  scanStep();
-}
-var scanTask = new Task(function () { scanStep(); }, this);
-function scanStep() {
-  if (!scan || scan.devId !== T.devId) { endScan(); return; }      // the target changed: stop
-  var M = scan.macros[scan.i];
-  if (scan.phase === 1) {                                          // nudged: which slots moved?
-    for (var s = 0; s < SLOTS; s++) {
-      var p = T.slots[s];
-      if (!p || p.macro || (moved[s] | 0) === scan.seq0[s]) continue;
-      var mp = slotFor(M.id, { param: 'Macro ' + M.n, label: p.name + ' (M' + M.n + ')' });
-      mp.macro = M.n; mp.held = p.param;
-      T.slots[s] = mp;
-      watch(s, mp);
-      scan.found++;
-      post('sycore-map: slot ' + (s + 1) + ' "' + p.param + '" is held by ' + M.rack + ' Macro ' + M.n + ' "' + M.label + '": the slot drives the Macro\n');
-    }
-    outlet(0, SCAN, M.v0);                                         // back to its value
-    scan.phase = 2;
-    scanTask.schedule(40);
-    return;
-  }
-  // next Macro (phase 0 / 2)
-  scan.i++;
-  if (scan.i >= scan.macros.length) { endScan(); return; }
-  M = scan.macros[scan.i];
-  M.v0 = num(M.id, 'value');
-  var lo = num(M.id, 'min'), hi = num(M.id, 'max'), d = (hi - lo) * 0.04;
-  scan.seq0 = []; for (var k = 0; k < SLOTS; k++) scan.seq0[k] = moved[k] | 0;
-  outlet(0, SCAN, 'id', M.id);
-  outlet(0, SCAN, M.v0 + (M.v0 - lo < (hi - lo) / 2 ? d : -d));
-  scan.phase = 1;
-  scanTask.schedule(80);
-}
-function endScan() {
-  if (scan && scan.phase === 1) outlet(0, SCAN, scan.macros[scan.i].v0);   // interrupted while nudged: back
-  outlet(0, SCAN, 'id', 0);
-  if (!scan) return;
-  var sc = slotCache[scan.devId];
-  if (scan.devId !== T.devId) {                                   // interrupted (another track): again next time
-    delete scanned[scan.devId];
-    post('sycore-map: Macro scan interrupted\n');
-    scan = null;
-    return;
-  }
-  {
-    if (sc) sc.slots = T.slots.map(function (x) { return x ? copy(x) : null; });
-    if (scan.found) { sendInfo(); sendView(); }
-  }
-  post('sycore-map: Macros scanned in ' + (Date.now() - scan.t0) + ' ms · ' + scan.found + ' slot(s) on a Macro\n');
-  scan = null;
 }
 function trackIndex(id) { for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return i; return -1; }
 /** The target again (new tables, or SY.CORE picked a track). */
@@ -301,14 +241,13 @@ function retarget() { if (T.trackId) { var id = T.trackId; T.trackId = 0; safeTa
 function sendInfo() {
   toBridge('mapinfo', JSON.stringify({
     track: { index: T.index, name: T.track },
-    device: T.devId ? { name: T.device, cls: T.cls, rack: T.rack } : null,
+    device: T.devId ? { name: T.device || T.rack, cls: T.cls || 'Rack', rack: T.rack } : null,
     mode: T.mode,
     slots: T.slots.map(function (s) { return s ? { param: s.param, name: s.name, value: s.value } : null; }),
   }));
 }
 
 // ── values ──
-/** Slot s to v (0–1): its range, whole numbers when int. */
 // A live.remote~ takes its parameter exclusively (greyed out in Live: no mouse, no automation): a slot
 // holds it only while it moves, and lets it go 500 ms after the last move (the value stays).
 var held = [], heldAt = [];
@@ -320,11 +259,10 @@ var releaser = new Task(function () {
 }, this);
 releaser.interval = 100;
 releaser.repeat();
-var lastLog = 0;
-function setSlot(s, v, from) {
+/** Slot s to v (0–1): its range, whole numbers when int. */
+function setSlot(s, v) {
   var p = T.slots[s];
-  if (!p) { if (DEBUG) post('sycore-map: slot ' + s + ' empty\n'); return; }
-  if (DEBUG && Date.now() - lastLog > 250) { lastLog = Date.now(); post('sycore-map: ' + (from || '?') + ' slot ' + s + ' "' + p.param + '" state ' + p.state + ' id ' + p.id + ' held ' + held[s] + ' → ' + (p.min + v * (p.max - p.min)) + '\n'); }
+  if (!p) return;
   if (held[s] !== p.id) { outlet(0, s, 'id', p.id); held[s] = p.id; }
   heldAt[s] = Date.now();
   p.value = Math.max(0, Math.min(1, v));
@@ -340,9 +278,7 @@ function makeObserver(s, pid) {
     if (!p) return;
     var v = norm(p, +args[1]);
     if (p.seen && Math.abs(v - p.value) < 1e-4) return;
-    moved[s] = (moved[s] | 0) + 1;
-    p.seen = 1; p.value = v;
-    if (!scan) dirty[s] = 1;
+    p.seen = 1; p.value = v; dirty[s] = 1;
   }, 'id ' + pid);
   o.property = 'value';
   return o;
@@ -351,6 +287,7 @@ function watch(s, slot) {
   if (obs[s]) { obs[s].property = ''; obs[s] = null; }
   if (slot) obs[s] = makeObserver(s, slot.id);
 }
+
 var flush = new Task(function () {
   var any = 0;
   for (var s in dirty) { var v = T.slots[s] ? T.slots[s].value : 0; toBridge('mapvalue', +s, v); outlet(2, 'val', +s, v); any = 1; }
@@ -364,7 +301,8 @@ flush.repeat();
 function sendView() {
   var head = !T.devId ? (ready ? 'Select a track with an instrument' : 'Starting…')
     : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
-  var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + T.cls : '');
+  var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'mixed' ? T.nMacros + ' MACROS + ' + T.cls
+    : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + (T.cls || 'Rack') : '');
   outlet(2, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
     slots: T.slots.map(function (x) { return x ? { name: x.name, value: x.value } : null; }) }));
 }
@@ -379,13 +317,13 @@ function anything() {
       cache = {}; slotCache = {}; foundCache = {};
       if (ready) retarget();
       break;
-    case 'value': setSlot(a[0] | 0, +a[1], 'SY.CORE'); break;
+    case 'value': setSlot(a[0] | 0, +a[1]); break;
     case 'target':
       if (a[0] === 'follow') { setFollow(1); outlet(1, 'followtoggle', 1); }
       else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
-    case 'drag': setSlot(a[0] | 0, +a[1], 'drag'); break;
+    case 'drag': setSlot(a[0] | 0, +a[1]); break;
     case 'viewready': sendView(); break;
   }
 }
@@ -397,7 +335,7 @@ function setFollow(v) {
 }
 /** Every parameter of the instrument driven now (for SY.CORE's table editor): slow, on request only. */
 function sendParams() {
-  if (!T.devId) return;
+  if (!T.devId || !T.cls) return;
   var info = deviceInfo(T.devId), out = [];
   readAll(info);
   for (var i = 0; i < info.pids.length; i++) {

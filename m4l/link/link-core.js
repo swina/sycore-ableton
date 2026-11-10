@@ -293,7 +293,7 @@ function mapInfoFromDevice(t) {
   const tr = o.track && typeof o.track === 'object' ? { index: int(o.track.index, -1, 999, -1), name: text(o.track.name, 128) } : null;
   const dv = o.device && typeof o.device === 'object'
     ? { name: text(o.device.name, 128), cls: text(o.device.cls), rack: o.device.rack ? text(o.device.rack, 128) : null } : null;
-  const mode = ['table', 'macros', 'none'].includes(o.mode) ? o.mode : 'none';
+  const mode = ['table', 'macros', 'mixed', 'none'].includes(o.mode) ? o.mode : 'none';
   const slots = Array.from({ length: MAP_SLOTS }, (_, i) => {
     const x = Array.isArray(o.slots) ? o.slots[i] : null;
     return x && typeof x === 'object' ? { param: text(x.param), name: text(x.name || x.param), value: clamp01(x.value) } : null;

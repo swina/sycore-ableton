@@ -321,7 +321,7 @@ const rig = build([
 // [jsui sycore-map-view.js] the 16 slots drawn (a reload of the view loses nothing); each slot moves its
 // parameter through a [live.remote~]. Follow: the selected track.
 // The track's MIDI passes through (the device can sit on an instrument track too).
-const MAP_W = 470, SLOTS = 16, REMOTES = SLOTS + 1; // the 17th: the Macro scan (sycore-map.js)
+const MAP_W = 470, SLOTS = 16, REMOTES = SLOTS;
 const mapSlots = [], mapLines = [];
 for (let s = 0; s < REMOTES; s++) {
   const x = 30 + s * 110;

@@ -180,6 +180,7 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.deepEqual(info.slots[0], { param: 'LP Freq', name: 'LP Freq', value: 0.4 });
   assert.equal(info.slots[1], null);
   assert.deepEqual(info.slots[2], { param: 'Macro 1', name: 'Filter Cutoff', value: 1 });
+  assert.equal(mapInfoFromDevice('{"mode":"mixed"}').mode, 'mixed');
   assert.equal(mapInfoFromDevice('not json'), null);
   // a JSON symbol split in words by Max: joined again
   assert.equal(mapInfoFromDevice(['{"mode":"none",', '"track":null}']).mode, 'none');
