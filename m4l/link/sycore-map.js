@@ -37,7 +37,7 @@ function setTables(t) {
 setTables({});
 
 var ready = 0, follow = 1;
-var view = null, setObs = null, P = null;
+var view = null, setObs = null;
 var cache = {};          // device id → { cls, name, byName: { original_name: param id } }
 var tracks = [];         // [{ id, index, name }]
 // The target: track, device, mode, and the 16 slots { id, param, name, min, max, int, value (0–1) } or null
@@ -48,13 +48,8 @@ var dirty = {};          // slots whose value changed in Live (sent at most ever
 // ── Live API helpers ──
 function clean(v) { return String(v instanceof Array ? v.join(' ') : v).replace(/^"(.*)"$/, '$1'); }
 function ids(list) { var r = []; for (var i = 0; i + 1 < list.length; i += 2) if (list[i] === 'id' && +list[i + 1]) r.push(+list[i + 1]); return r; }
-/** One reused LiveAPI object pointed at an id (goto), a new one where goto is missing. */
-function at(id) {
-  if (!P) P = new LiveAPI(null, 'id ' + id);
-  else if (typeof P.goto === 'function') P.goto('id ' + id);
-  else P = new LiveAPI(null, 'id ' + id);
-  return P;
-}
+/** A LiveAPI object on an id (a new one each time, as in the spike: goto('id N') leaves it invalid). */
+function at(id) { return new LiveAPI(null, 'id ' + id); }
 function get(id, prop) { return at(id).get(prop); }
 function num(id, prop) { return +get(id, prop)[0]; }
 function toBridge() { var a = arrayfromargs(arguments); outlet.apply(this, [1].concat(a)); }
