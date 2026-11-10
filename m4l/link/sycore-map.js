@@ -17,7 +17,7 @@ inlets = 1;
 outlets = 3;
 
 var SLOTS = 16;
-// Factory tables (SY.CORE's tables replace them): slot = { param: original_name, min?, max?, int? }.
+// Factory tables (SY.CORE's tables replace them; variables are not named like the messages "tables", "follow"): slot = { param: original_name, min?, max?, int? }.
 var FACTORY = {
   Drift: ['LP Freq', 'LP Res', 'HP Freq', 'LP Mod Amt 1', 'Env 1 Attack', 'Env 1 Decay', 'Env 1 Sustain', 'Env 1 Release',
     'Osc 1 Shape', 'Osc 2 Detune', 'Osc 2 Gain', 'Noise Gain', 'LFO Rate', 'LFO Amt', 'Drift', 'Volume'],
@@ -27,16 +27,16 @@ var FACTORY = {
     'S Start', 'S Length', { param: 'Transpose', min: -24, max: 24, int: 1 }, 'Detune', 'Glide Time', 'Shaper Amt', 'Pan',
     { param: 'Volume', min: -36, max: 6 }],
 };
-var tables = {};
+var tableSet = {};
 function setTables(t) {
-  tables = {};
+  tableSet = {};
   var k, i;
-  for (k in FACTORY) tables[k] = FACTORY[k].map(function (x) { return typeof x === 'string' ? { param: x } : x; });
-  for (k in t) if (t[k] instanceof Array) { tables[k] = []; for (i = 0; i < SLOTS; i++) tables[k].push(t[k][i] || null); }
+  for (k in FACTORY) tableSet[k] = FACTORY[k].map(function (x) { return typeof x === 'string' ? { param: x } : x; });
+  for (k in t) if (t[k] instanceof Array) { tableSet[k] = []; for (i = 0; i < SLOTS; i++) tableSet[k].push(t[k][i] || null); }
 }
 setTables({});
 
-var ready = 0, follow = 1;
+var ready = 0, following = 1;
 var view = null, setObs = null;
 var cache = {};          // device id → { cls, name, byName: { original_name: param id } }
 var tracks = [];         // [{ id, index, name }]
@@ -82,7 +82,7 @@ var pendingTrack = 0;
 var deferred = new Task(function () { if (pendingTrack) { var t = pendingTrack; pendingTrack = 0; safeTarget(t); } }, this);
 function safeTarget(id) { try { goTarget(id); } catch (e) { post('sycore-map: target failed: ' + e + '\n'); } }
 function onSelected(args) {
-  if (!follow || !args || args[0] !== 'selected_track') return;
+  if (!following || !args || args[0] !== 'selected_track') return;
   var id = +args[2];
   if (!id || id === T.trackId) return;
   pendingTrack = id;
@@ -153,7 +153,7 @@ function goTarget(trackId) {
     mode = 'macros';
     for (var m = 0; m < SLOTS; m++) { var mp = info.byName['Macro ' + (m + 1)]; slots.push(mp ? slotFor(mp, { param: 'Macro ' + (m + 1) }) : null); }
   } else {
-    var table = tables[info.cls];
+    var table = tableSet[info.cls];
     mode = table ? 'table' : 'none';
     for (var s = 0; s < SLOTS; s++) {
       var def = table && table[s], pid = def && info.byName[def.param];
@@ -249,8 +249,8 @@ function anything() {
 }
 /** Follow the selected track (on: go to it now) or stay on the target (Lock). */
 function setFollow(v) {
-  follow = v ? 1 : 0;
-  if (follow && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) safeTarget(sel); }
+  following = v ? 1 : 0;
+  if (following && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) safeTarget(sel); }
   sendView();
 }
 /** Every parameter of the instrument driven now (for SY.CORE's table editor): slow, on request only. */
