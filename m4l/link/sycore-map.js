@@ -145,7 +145,7 @@ function goTarget(trackId) {
   var tname = clean(get(trackId, 'name'));
   if (!found) {                                   // keep the last instrument (this device's own track…)
     T.note = tname + ': no instrument';
-    view();
+    sendView();
     return;
   }
   var info = deviceInfo(found.id), slots = [], mode;
@@ -167,7 +167,7 @@ function goTarget(trackId) {
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
   post('sycore-map: ' + tname + ' > ' + (found.rack ? found.rack + ' > ' : '') + info.name + ' (' + info.cls + ') · ' + mode + ' ' + n + '/16 · ' + T.ms + ' ms\n');
   sendInfo();
-  view();
+  sendView();
 }
 function trackIndex(id) { for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return i; return -1; }
 /** The target again (new tables, or SY.CORE picked a track). */
@@ -218,7 +218,8 @@ flush.interval = 30;
 flush.repeat();
 
 // ── the view (sycore-map-view.js) ──
-function view() {
+// (sendView, not view: `view` is the selected-track observer)
+function sendView() {
   var head = !T.devId ? (ready ? 'Select a track with an instrument' : 'Starting…')
     : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
   var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + T.cls : '');
@@ -243,14 +244,14 @@ function anything() {
       break;
     case 'params': sendParams(); break;
     case 'drag': setSlot(a[0] | 0, +a[1]); break;
-    case 'viewready': view(); break;
+    case 'viewready': sendView(); break;
   }
 }
 /** Follow the selected track (on: go to it now) or stay on the target (Lock). */
 function setFollow(v) {
   follow = v ? 1 : 0;
   if (follow && ready) { var sel = ids(view.get('selected_track'))[0]; if (sel && sel !== T.trackId) safeTarget(sel); }
-  view();
+  sendView();
 }
 /** Every parameter of the instrument driven now (for SY.CORE's table editor): slow, on request only. */
 function sendParams() {
