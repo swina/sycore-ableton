@@ -284,6 +284,14 @@ function parseMapTarget(m) {
   return t < 0 ? undefined : t;
 }
 
+/** `map-variation` → an index (0–127), 'next' or 'prev'; undefined if not one. */
+function parseMapVariation(m) {
+  if (!m || m.type !== 'map-variation') return undefined;
+  if (m.step === 1 || m.step === -1) return m.step > 0 ? 'next' : 'prev';
+  const i = int(m.index, 0, 127, -1);
+  return i < 0 ? undefined : i;
+}
+
 /** JSON text from the map device ([js] → node), or null. */
 function json(t) { try { const o = JSON.parse(Array.isArray(t) ? t.join(' ') : String(t)); return o && typeof o === 'object' ? o : null; } catch { return null; } }
 /** The map device's `mapinfo <json>` → the `map-info` message for SY.CORE (clamped), or null. */
@@ -298,7 +306,9 @@ function mapInfoFromDevice(t) {
     const x = Array.isArray(o.slots) ? o.slots[i] : null;
     return x && typeof x === 'object' ? { param: text(x.param), name: text(x.name || x.param), value: clamp01(x.value) } : null;
   });
-  return { type: 'map-info', track: tr, device: dv, mode, slots };
+  const va = o.variations && typeof o.variations === 'object'
+    ? { count: int(o.variations.count, 0, 128, 0), selected: int(o.variations.selected, -1, 127, -1) } : null;
+  return { type: 'map-info', track: tr, device: dv, mode, slots, variations: va };
 }
 /** `mapvalue <slot> <0–1>` → `map-value`, or null. */
 function mapValueFromDevice(slot, value) {
@@ -324,4 +334,4 @@ function mapParamsFromDevice(t) {
   };
 }
 
-module.exports = { MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };

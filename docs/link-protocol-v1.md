@@ -53,7 +53,9 @@ One **SY.CORE Map** device in the set drives the instrument of a track — the s
 | client | `map` | `slot` (0–15), `value` (0–1, clamped): a slot moved |
 | client | `map-target` | `follow: true`, or `track` (index from 0) |
 | client | `map-params-request` | — (answered with `map-params`) |
-| device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `none`), `slots` (16: `{ param, name, value 0–1 }` or null) — on each change of target |
+| client | `map-variation` | `index` (0–127), or `step` (1 next, -1 previous, wrapping): recall a Macro Variation of the Rack in focus |
+| client | `map-randomize` | — : randomize the Rack's Macros |
+| device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `none`), `slots` (16: `{ param, name, value 0–1 }` or null), `variations` (`count`, `selected` -1 = none; null when no Rack) — on each change of target or variation |
 | device | `map-value` | `slot`, `value` (0–1): a slot's parameter moved in Live (mouse, automation, preset) |
 | device | `map-tracks` | `tracks`: `[{ index, name }]` |
 | device | `map-params` | `cls`, `name`, `params`: `[{ name (original_name), shown, min, max, quantized }]` (at most 512) |

@@ -181,6 +181,13 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.equal(info.slots[1], null);
   assert.deepEqual(info.slots[2], { param: 'Macro 1', name: 'Filter Cutoff', value: 1 });
   assert.equal(mapInfoFromDevice('{"mode":"mixed"}').mode, 'mixed');
+  assert.deepEqual(mapInfoFromDevice('{"variations":{"count":8,"selected":2}}').variations, { count: 8, selected: 2 });
+  assert.equal(mapInfoFromDevice('{}').variations, null);
+  const { parseMapVariation } = require('./link-core');
+  assert.equal(parseMapVariation({ type: 'map-variation', index: 3 }), 3);
+  assert.equal(parseMapVariation({ type: 'map-variation', step: 1 }), 'next');
+  assert.equal(parseMapVariation({ type: 'map-variation', step: -1 }), 'prev');
+  assert.equal(parseMapVariation({ type: 'map-variation', index: -2 }), undefined);
   assert.equal(mapInfoFromDevice('not json'), null);
   // a JSON symbol split in words by Max: joined again
   assert.equal(mapInfoFromDevice(['{"mode":"none",', '"track":null}']).mode, 'none');

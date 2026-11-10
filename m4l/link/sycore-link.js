@@ -18,14 +18,15 @@
  *                "rig fill <0|1>"                                                (the Drum Machine's Fill on)
  *                "rig chord <now> <duration> <next> <duration> <ms> <bars> <seq> <elapsed ms>"  ('-' = none)
  *                "map tables <json>" / "map value <slot> <0–1>" / "map target <follow|track>" / "map params"
+ *                "map variation <index|next|prev>" / "map randomize"
  *                                                                   → [s sycore_map] (the SY.CORE Map device)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
-  parseMapTables, parseMap, parseMapTarget, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
+  parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.2.1'; // 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed'
+const VERSION = '1.3.0'; // 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -170,6 +171,8 @@ wss.on('connection', (ws, req) => {
       case 'map': { const r = parseMap(msg); if (r) toMax('map', 'value', r.slot, r.value); break; }
       case 'map-target': { const t = parseMapTarget(msg); if (t !== undefined) { mapTarget = t; toMax('map', 'target', t); } break; }
       case 'map-params-request': toMax('map', 'params'); break;
+      case 'map-variation': { const v = parseMapVariation(msg); if (v !== undefined) toMax('map', 'variation', v); break; }
+      case 'map-randomize': toMax('map', 'randomize'); break;
       case 'ping': send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(now()) }); break;
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)

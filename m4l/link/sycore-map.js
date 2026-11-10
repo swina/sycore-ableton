@@ -6,7 +6,8 @@
 //   Macro holds left out) up to 16; a Rack without → the first instrument in its chains.
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
-//        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params"
+//        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params",
+//        "variation <index | next | prev>" (recall a Rack's Macro Variation), "randomize" (the Rack's Macros)
 //   out 0: "<slot> id <param id>" (a live.remote~ takes the parameter while the slot moves; id 0 = let go)
 //          / "<slot> <value>" (parameter units)
 //   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
@@ -225,7 +226,8 @@ function goTarget(trackId) {
     slotCache[ck] = { mode: mode, nMacros: nMacros, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   }
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
-    rack: found.rack, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
+    rack: found.rack, rackId: found.macros ? found.rackId : 0, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
+  watchVariations(T.rackId);
   for (var k = 0; k < SLOTS; k++) { release(k); watch(k, slots[k]); }
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
@@ -244,7 +246,52 @@ function sendInfo() {
     device: T.devId ? { name: T.device || T.rack, cls: T.cls || 'Rack', rack: T.rack } : null,
     mode: T.mode,
     slots: T.slots.map(function (s) { return s ? { param: s.param, name: s.name, value: s.value } : null; }),
+    variations: T.rackId ? { count: T.varCount | 0, selected: T.varSel === undefined ? -1 : T.varSel } : null,
   }));
+}
+
+// ── Macro Variations (a Rack's stored Macro settings) ──
+// Observed on the Rack in focus: their count and the selected one (Live's own changes included); SY.CORE
+// recalls one (index, next, prev) or randomizes the Macros. Changes to the set are made outside
+// notifications (deferred).
+var varObs = [];
+var varTask = new Task(function () { sendInfo(); sendView(); }, this);
+function watchVariations(rackId) {
+  for (var i = 0; i < varObs.length; i++) varObs[i].property = '';
+  varObs = [];
+  T.varCount = 0; T.varSel = -1;
+  if (!rackId) return;
+  T.varCount = num(rackId, 'variation_count') | 0;
+  T.varSel = num(rackId, 'selected_variation_index');
+  ['variation_count', 'selected_variation_index'].forEach(function (prop) {
+    var o = new LiveAPI(function (args) {
+      if (!args || args[0] !== prop || T.rackId !== rackId) return;
+      if (prop === 'variation_count') T.varCount = +args[1] | 0; else T.varSel = +args[1];
+      varTask.schedule(0);
+    }, 'id ' + rackId);
+    o.property = prop;
+    varObs.push(o);
+  });
+}
+/** Recall a Macro Variation of the Rack in focus: an index, or 'next' / 'prev' (wrapping). */
+function recallVariation(arg) {
+  if (!T.rackId || !T.varCount) return;
+  var cur = T.varSel, n = T.varCount, i;
+  if (arg === 'next') i = cur < 0 ? 0 : (cur + 1) % n;
+  else if (arg === 'prev') i = cur < 0 ? n - 1 : (cur - 1 + n) % n;
+  else i = arg | 0;
+  if (i < 0 || i >= n) return;
+  var r = at(T.rackId);
+  r.set('selected_variation_index', i);
+  r.call('recall_selected_variation');
+  T.varSel = i;
+  post('sycore-map: ' + T.rack + ' variation ' + (i + 1) + '/' + n + '\n');
+  sendInfo(); sendView();
+}
+function randomizeMacros() {
+  if (!T.rackId) return;
+  at(T.rackId).call('randomize_macros');
+  post('sycore-map: ' + T.rack + ' Macros randomized\n');
 }
 
 // ── values ──
@@ -303,6 +350,7 @@ function sendView() {
     : T.track + ' > ' + (T.rack ? T.rack + ' > ' : '') + T.device;
   var tag = T.note || (T.mode === 'macros' ? 'MACROS' : T.mode === 'mixed' ? T.nMacros + ' MACROS + ' + T.cls
     : T.mode === 'table' ? T.cls : T.devId ? 'NO TABLE · ' + (T.cls || 'Rack') : '');
+  if (!T.note && T.rackId && T.varCount) tag = 'VAR ' + (T.varSel >= 0 ? T.varSel + 1 : '–') + '/' + T.varCount + ' · ' + tag;
   outlet(2, 'state', JSON.stringify({ head: head, on: T.devId ? 1 : 0, tag: tag, warn: T.mode === 'none' && T.devId ? 1 : 0,
     slots: T.slots.map(function (x) { return x ? { name: x.name, value: x.value } : null; }) }));
 }
@@ -323,6 +371,8 @@ function anything() {
       else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(1, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }
       break;
     case 'params': sendParams(); break;
+    case 'variation': recallVariation(a[0]); break;
+    case 'randomize': randomizeMacros(); break;
     case 'drag': setSlot(a[0] | 0, +a[1]); break;
     case 'viewready': sendView(); break;
   }
