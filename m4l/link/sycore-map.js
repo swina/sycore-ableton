@@ -164,6 +164,9 @@ function slotFor(pid, def) {
   if (def.max !== undefined && def.max !== null) s.max = Math.min(max, def.max);
   if (s.max <= s.min) { s.min = min; s.max = max; }
   s.value = 0;          // the value comes from the slot's observer (it reports it when set up)
+  // state: 0 active, 1 inactive (no effect now), 2 disabled — e.g. mapped to a Rack's Macro, which holds it
+  s.state = num(pid, 'state');
+  if (DEBUG && s.state) post('sycore-map: "' + s.param + '" state ' + s.state + (s.state === 2 ? ' (disabled: a Macro holds it?)' : '') + '\n');
   return s;
 }
 function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
@@ -241,7 +244,7 @@ var lastLog = 0;
 function setSlot(s, v, from) {
   var p = T.slots[s];
   if (!p) { if (DEBUG) post('sycore-map: slot ' + s + ' empty\n'); return; }
-  if (DEBUG && Date.now() - lastLog > 250) { lastLog = Date.now(); post('sycore-map: ' + (from || '?') + ' slot ' + s + ' id ' + p.id + ' held ' + held[s] + ' → ' + (p.min + v * (p.max - p.min)) + '\n'); }
+  if (DEBUG && Date.now() - lastLog > 250) { lastLog = Date.now(); post('sycore-map: ' + (from || '?') + ' slot ' + s + ' "' + p.param + '" state ' + p.state + ' id ' + p.id + ' held ' + held[s] + ' → ' + (p.min + v * (p.max - p.min)) + '\n'); }
   if (held[s] !== p.id) { outlet(0, s, 'id', p.id); held[s] = p.id; }
   heldAt[s] = Date.now();
   p.value = Math.max(0, Math.min(1, v));
