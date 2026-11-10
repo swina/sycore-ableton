@@ -6,7 +6,7 @@
 //   in : bang (live.thisdevice: the Live API is ready), "follow <0|1>" (the device's toggle),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params"
 //   out 0: "<slot> id <param id>" (re-point a live.remote~, id 0 = released) / "<slot> <value>" (parameter units)
-//   out 1: to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
+//   out 1: "askready" (→ live.thisdevice: bang back when the Live API is ready); to the bridge ([s sycore_map_in]): "mapready", "mapinfo <json>", "mapvalue <slot> <0–1>",
 //          "maptracks <json>", "mapparams <json>"; "followtoggle <0|1>" (SY.CORE changed the target: the toggle follows)
 // Parameters are read once per device (ids cached by device id): only the table's 16 on a track change.
 autowatch = 1;
@@ -64,12 +64,13 @@ function boot() {
   if (ready) return;
   try { start(); } catch (e) { ready = 0; post('sycore-map: start failed: ' + e + '\n'); }
 }
-// The script may be (re)loaded after live.thisdevice's only bang (autowatch, a reload): it starts by
-// itself as soon as the Live API answers.
+// The script may be (re)loaded after live.thisdevice's bang at load (autowatch, a reload): until it has
+// started it asks live.thisdevice again ("askready" → its inlet), which bangs back only once the Live
+// API is initialized (never touch the Live API before: "Live API is not initialized").
 post('sycore-map: script loaded\n');
 var booter = new Task(function () {
   if (ready) { booter.cancel(); return; }
-  try { if (+new LiveAPI(null, 'live_set').id > 0) boot(); } catch (e) { /* not ready yet */ }
+  outlet(1, 'askready');
 }, this);
 booter.interval = 500;
 booter.repeat();

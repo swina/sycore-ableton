@@ -334,7 +334,7 @@ const map = build([
   ['rs', 'route ' + Array.from({ length: SLOTS }, (_, i) => i).join(' '), 1, SLOTS + 1, 30, 270],
   ...mapSlots,
   // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
-  ['rf', 'route followtoggle', 1, 2, 500, 270],
+  ['rf', 'route followtoggle askready', 1, 3, 500, 270],
   ['fset', 'prepend set', 1, 1, 500, 300],
   ['ms', `s ${MAP_IN}`, 1, 0, 620, 300],
   ['fol', 'LOCK', 1, 1, 500, 20, {
@@ -355,7 +355,7 @@ const map = build([
 ], [
   ['dev', 0, 'view', 0], ['mr', 0, 'view', 0],
   ['view', 0, 'rs', 0], ...mapLines,
-  ['view', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'ms', 0],
+  ['view', 1, 'rf', 0], ['rf', 0, 'fset', 0], ['fset', 0, 'fol', 0], ['rf', 1, 'dev', 0], ['rf', 2, 'ms', 0],
   ['fol', 0, 'fp', 0], ['fp', 0, 'view', 0],
   ['mi', 0, 'mo', 0],
 ], { width: MAP_W });
