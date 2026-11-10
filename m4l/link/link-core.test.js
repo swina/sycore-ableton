@@ -125,9 +125,9 @@ test('rig: SY.CORE\'s Rig state for the Rig devices, clamped; active false = non
   assert.equal(parseRig({ type: 'midi' }), undefined);
   assert.equal(parseRig({ type: 'rig', active: false }), null);
   const r = parseRig({ type: 'rig', rows: [{ filled: 5, playing: 2, queued: 9, muted: true }], section: 3 });
-  assert.deepEqual(r.rows[0], { filled: 5, playing: 2, queued: -1, muted: 1, solo: 0 });
+  assert.deepEqual(r.rows[0], { filled: 5, playing: 2, queued: -1, muted: 1, solo: 0, gen: 0 });
   assert.equal(r.rows.length, 5);
-  assert.deepEqual(r.rows[4], { filled: 0, playing: -1, queued: -1, muted: 0, solo: 0 });
+  assert.deepEqual(r.rows[4], { filled: 0, playing: -1, queued: -1, muted: 0, solo: 0, gen: 0 });
   assert.equal(r.section, 3);
   assert.equal(r.queuedSection, -1);
   assert.equal(r.chord, null);
@@ -135,5 +135,10 @@ test('rig: SY.CORE\'s Rig state for the Rig devices, clamped; active false = non
   assert.deepEqual(c, { now: 'Cmaj7', dur: '1/1', next: '-', nextDur: '-', ms: 0, bars: 0, seq: 0 });
   assert.deepEqual(parseRig({ type: 'rig', rows: [], chord: { now: 'C', ms: 2000, bars: 1, seq: 4 } }).chord.ms, 2000);
   assert.ok(rigName('rig_slot_bass_h') && rigName('rig_mute_arp') && rigName('rig_section_8'));
-  assert.ok(!rigName('rig_global') && !rigName('dm_fill') && !rigName('rig_slot_drum_i'));
+  assert.ok(rigName('rig_gen_seq') && rigName('rig_fill'));
+  assert.ok(!rigName('rig_global') && !rigName('dm_fill') && !rigName('rig_slot_drum_i') && !rigName('rig_gen_x'));
+  assert.equal(parseRig({ type: 'rig', rows: [], fill: true }).fill, 1);
+  assert.equal(parseRig({ type: 'rig', rows: [] }).fill, 0);
+  assert.equal(parseRig({ type: 'rig', rows: [{ gen: 3 }] }).rows[0].gen, 3);
+  assert.equal(parseRig({ type: 'rig', rows: [{}] }).rows[0].gen, 0);
 });

@@ -11,15 +11,16 @@
  *                "clear"                            → both pipes (drop pending messages)
  *                "info <text…>" / "stats <text…>"  → the device's status lines
  *                "state <0|1|2>"                    → status LED: waiting, connected, error
- *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo>"  → [s sycore_rig]
+ *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo> <gen>" → [s sycore_rig]
  *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
+ *                "rig fill <0|1>"                                                (the Drum Machine's Fill on)
  *                "rig chord <now> <duration> <next> <duration> <ms> <bars> <seq> <elapsed ms>"  ('-' = none)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName } = require('./link-core');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0'; // 1.1: Rig GEN / FILL
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -62,8 +63,9 @@ function sendMidi(data, beat) {
 function sendRig() {
   if (!rigState) { toMax('rig', 'active', 0); return; }
   toMax('rig', 'active', 1);
-  rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo));
+  rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo, r.gen));
   toMax('rig', 'sec', rigState.section, rigState.queuedSection);
+  toMax('rig', 'fill', rigState.fill);
   const c = rigState.chord;
   // + its length (ms), bars, the step counter and the ms already gone (a device added mid-chord)
   toMax('rig', 'chord', c ? c.now : '-', c ? c.dur : '-', c ? c.next : '-', c ? c.nextDur : '-',
@@ -102,7 +104,12 @@ if (max) {
   max.addHandler('transport', safe('transport', onTransport));
   max.addHandler('track', safe('track', (...name) => { trackName = name.join(' ').replace(/^"(.*)"$/, '$1'); showInfo(); }));
   // A click on a SY.CORE Rig device: to SY.CORE as the rig action it is (rig_slot_drum_a, rig_mute_bass…).
-  max.addHandler('rigpress', safe('rigpress', name => { if (rigName(name)) broadcast({ type: 'rig-press', name: String(name) }); }));
+  // Each click is logged in the Max console (an unknown one too): the way to see where a click stops.
+  max.addHandler('rigpress', safe('rigpress', name => {
+    if (!rigName(name)) { log(`rig: ignored ${name}`); return; }
+    log(`rig: ${name} → SY.CORE (${wss.clients.size} connected)`);
+    broadcast({ type: 'rig-press', name: String(name) });
+  }));
 } else {
   // Simulated Live: 120 BPM from beat 0, reports at Live's UI rate.
   tr.set({ playing: 1, beat: 0, tempo: 120, num: 4, den: 4 }, now());

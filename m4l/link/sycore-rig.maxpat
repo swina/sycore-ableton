@@ -293,11 +293,11 @@
             "rect": [
               120,
               120,
-              880,
-              450
+              940,
+              510
             ],
             "openinpresentation": 1,
-            "devicewidth": 760,
+            "devicewidth": 820,
             "boxes": [
               {
                 "box": {
@@ -350,15 +350,15 @@
                   "patching_rect": [
                     0,
                     0,
-                    760,
-                    330
+                    820,
+                    390
                   ],
                   "presentation": 1,
                   "presentation_rect": [
                     0,
                     0,
-                    760,
-                    330
+                    820,
+                    390
                   ]
                 }
               },

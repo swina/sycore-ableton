@@ -210,7 +210,7 @@ const int = (v, lo, hi, def) => { const n = Math.round(Number(v)); return Number
 /**
  * A 'rig' message from SY.CORE: `active` false → null (no Rig Controller open); else
  * { rows: 5 × { filled (bit mask of slots A–H), playing, queued (slot 0–7, -1 none), muted, solo (0/1) },
- *   section, queuedSection (0–7, -1 none) }. Undefined when it is not one.
+ *   gen (Generates done on the row, a counter), section, queuedSection (0–7, -1 none), fill (0/1: the Drum Machine's Fill is on) }. Undefined when it is not one.
  */
 function parseRig(m) {
   if (!m || m.type !== 'rig') return undefined;
@@ -218,9 +218,9 @@ function parseRig(m) {
   if (!Array.isArray(m.rows)) return undefined;
   const rows = Array.from({ length: RIG_ROWS }, (_, i) => {
     const r = m.rows[i] || {};
-    return { filled: int(r.filled, 0, 255, 0), playing: int(r.playing, -1, 7, -1), queued: int(r.queued, -1, 7, -1), muted: r.muted ? 1 : 0, solo: r.solo ? 1 : 0 };
+    return { filled: int(r.filled, 0, 255, 0), playing: int(r.playing, -1, 7, -1), queued: int(r.queued, -1, 7, -1), muted: r.muted ? 1 : 0, solo: r.solo ? 1 : 0, gen: int(r.gen, 0, 2147483647, 0) };
   });
-  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1), chord: rigChord(m.chord) };
+  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1), fill: m.fill ? 1 : 0, chord: rigChord(m.chord) };
 }
 /** The chord sounding and the next one, as Max symbols: no spaces, '-' for none (an empty symbol
  *  would be lost in a Max message), at most 12 characters. */
@@ -232,7 +232,7 @@ function rigChord(c) {
     ms: int(c.ms, 0, 600000, 0), bars: Math.max(0, Math.min(64, Number(c.bars) || 0)), seq: int(c.seq, 0, 2147483647, 0),
   };
 }
-/** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, sections. */
-const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo)_(chord|drum|seq|bass|arp)|section_[1-8])$/.test(String(n));
+/** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, GEN, sections, Fill. */
+const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo|gen)_(chord|drum|seq|bass|arp)|section_[1-8]|fill)$/.test(String(n));
 
 module.exports = { parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };

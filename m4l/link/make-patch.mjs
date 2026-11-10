@@ -261,7 +261,7 @@ const receiver = build([
 // floating window (a subpatcher opened with [pcontrol]).
 const RIG_W = 380;
 const jsui = (p, extra = {}) => ({ kind: 'jsui', p, filename: `${LINK_DIR}/sycore-rig-grid.js`, border: 0, ...extra });
-const WIN = [760, 330];
+const WIN = [820, 390]; // the reference layout's proportions (1451 × 693: with the GEN column)
 // OPEN reaches the window twice: [pcontrol] open on its box, and "front" to its own [thispatcher]
 // through a device-local send (---: this device only) — either one opens it and brings it forward.
 const rigWindow = build([
