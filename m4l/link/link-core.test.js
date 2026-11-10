@@ -142,3 +142,50 @@ test('rig: SY.CORE\'s Rig state for the Rig devices, clamped; active false = non
   assert.equal(parseRig({ type: 'rig', rows: [{ gen: 3 }] }).rows[0].gen, 3);
   assert.equal(parseRig({ type: 'rig', rows: [{}] }).rows[0].gen, 0);
 });
+
+test('map: tables by class_name, slots clamped to 16, bad classes and slots dropped', () => {
+  const { parseMapTables } = require('./link-core');
+  assert.equal(parseMapTables({ type: 'map' }), undefined);
+  const t = parseMapTables({ type: 'map-tables', tables: {
+    Drift: [{ param: 'LP Freq' }, { param: 'Volume', min: 0, max: '0.8' }, null, { param: 'Osc 1 Oct', int: true }, {}],
+    'bad name!': [{ param: 'x' }],
+    Simpler: 'nope',
+  } });
+  assert.deepEqual(Object.keys(t), ['Drift']);
+  assert.equal(t.Drift.length, 16);
+  assert.deepEqual(t.Drift.slice(0, 5), [{ param: 'LP Freq' }, { param: 'Volume', min: 0, max: 0.8 }, null, { param: 'Osc 1 Oct', int: 1 }, null]);
+});
+
+test('map: slot value 0–1 and the target', () => {
+  const { parseMap, parseMapTarget } = require('./link-core');
+  assert.deepEqual(parseMap({ type: 'map', slot: 3, value: 0.25 }), { slot: 3, value: 0.25 });
+  assert.deepEqual(parseMap({ type: 'map', slot: 0, value: 7 }), { slot: 0, value: 1 });
+  assert.equal(parseMap({ type: 'map', slot: 16, value: 0.5 }), undefined);
+  assert.equal(parseMap({ type: 'map', slot: 1 }), undefined);
+  assert.equal(parseMapTarget({ type: 'map-target', follow: true }), 'follow');
+  assert.equal(parseMapTarget({ type: 'map-target', track: 4 }), 4);
+  assert.equal(parseMapTarget({ type: 'map-target', track: -1 }), undefined);
+});
+
+test('map: the device\'s info, values, tracks and parameters for SY.CORE', () => {
+  const { mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
+  const info = mapInfoFromDevice(JSON.stringify({
+    track: { index: 3, name: '4-Hera Pad' }, device: { name: 'Drift', cls: 'Drift', rack: 'Hera Pad' }, mode: 'table',
+    slots: [{ param: 'LP Freq', value: 0.4 }, null, { param: 'Macro 1', name: 'Filter Cutoff', value: 2 }],
+  }));
+  assert.equal(info.type, 'map-info');
+  assert.deepEqual(info.track, { index: 3, name: '4-Hera Pad' });
+  assert.deepEqual(info.device, { name: 'Drift', cls: 'Drift', rack: 'Hera Pad' });
+  assert.equal(info.slots.length, 16);
+  assert.deepEqual(info.slots[0], { param: 'LP Freq', name: 'LP Freq', value: 0.4 });
+  assert.equal(info.slots[1], null);
+  assert.deepEqual(info.slots[2], { param: 'Macro 1', name: 'Filter Cutoff', value: 1 });
+  assert.equal(mapInfoFromDevice('not json'), null);
+  // a JSON symbol split in words by Max: joined again
+  assert.equal(mapInfoFromDevice(['{"mode":"none",', '"track":null}']).mode, 'none');
+  assert.deepEqual(mapValueFromDevice(2, 0.5), { type: 'map-value', slot: 2, value: 0.5 });
+  assert.equal(mapValueFromDevice(20, 0.5), null);
+  assert.deepEqual(mapTracksFromDevice('[{"index":0,"name":"1-Drums"}]'), { type: 'map-tracks', tracks: [{ index: 0, name: '1-Drums' }] });
+  const p = mapParamsFromDevice(JSON.stringify({ cls: 'OriginalSimpler', name: 'Bass', params: [{ name: 'Volume', min: -36, max: 36 }, { name: 'F On', q: 1 }] }));
+  assert.deepEqual(p.params, [{ name: 'Volume', shown: 'Volume', min: -36, max: 36, quantized: 0 }, { name: 'F On', shown: 'F On', min: 0, max: 1, quantized: 1 }]);
+});

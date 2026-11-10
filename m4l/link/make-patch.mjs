@@ -12,6 +12,9 @@ const SEND_NAME = 'sycore_link_midi';
 // Rig devices ↔ the bridge, inside Max: the Rig state out ([s RIG_STATE]), the clicks in ([s RIG_PRESS]).
 const RIG_STATE = 'sycore_rig';
 const RIG_PRESS = 'sycore_rig_in';
+// The SY.CORE Map device (P12) ↔ the bridge: the tables / slot values out, its info and values in.
+const MAP_OUT = 'sycore_map';
+const MAP_IN = 'sycore_map_in';
 const LINK_DIR = process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link';
 
 // SY.CORE's look (src/assets/main.css in sycore-refactor): dark panels, brand green, cyan accent,
@@ -168,10 +171,13 @@ const bridge = build([
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
   // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
   ['node', `node.script ${LINK_DIR}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
-  ['route', 'route midi3 midi2 clear info stats state rig', 1, 8, 30, 300],
+  ['route', 'route midi3 midi2 clear info stats state rig map', 1, 9, 30, 300],
   // SY.CORE Rig devices: the Rig state to them, their clicks to SY.CORE
   ['rigs', `s ${RIG_STATE}`, 1, 0, 1000, 300],
   ['rigr', `r ${RIG_PRESS}`, 1, 1, 1000, 220],
+  // the SY.CORE Map device (P12)
+  ['maps', `s ${MAP_OUT}`, 1, 0, 1140, 300],
+  ['mapr', `r ${MAP_IN}`, 1, 1, 1140, 220],
   // midi3 b1 b2 b3 beat → delay = (beat × resolution − ticks now) in ms, from Live's transport in Max
   ['t3', 't l b', 1, 2, 30, 330],
   ['tr3', 'transport', 2, 9, 120, 360],
@@ -217,6 +223,7 @@ const bridge = build([
   ['tpath', 0, 'tlp', 0], ['tlp', 0, 'obName', 1], ['obName', 0, 'tpre', 0], ['tpre', 0, 'node', 0],
   ['start', 0, 'node', 0], ['inst', 0, 'node', 0],
   ['route', 6, 'rigs', 0], ['rigr', 0, 'node', 0],
+  ['route', 7, 'maps', 0], ['mapr', 0, 'node', 0],
   ['node', 0, 'route', 0],
   ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'up3', 0],
   ['tr3', 7, 'ex3', 1], ['tr3', 4, 'ex3', 2], ['tr3', 3, 'ex3', 3],

@@ -6,6 +6,8 @@
  *   Max → node : "transport <playing> <beat> <tempo> <num> <den>"  (live.observer)
  *                "track <name…>"                                    (this device's track name)
  *                "rigpress <rig action>"                            (a click on a SY.CORE Rig device)
+ *                "mapready" / "mapinfo <json>" / "mapvalue <slot> <0–1>" / "maptracks <json>" / "mapparams <json>"
+ *                                                                   (the SY.CORE Map device, P12)
  *   node → Max : "midi3 <b1> <b2> <b3> <beat>"  (beat -1 = now) → delay from [transport] → [pipe] → [midiout]
  *                "midi2 <b1> <b2> <beat>"
  *                "clear"                            → both pipes (drop pending messages)
@@ -15,12 +17,15 @@
  *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
  *                "rig fill <0|1>"                                                (the Drum Machine's Fill on)
  *                "rig chord <now> <duration> <next> <duration> <ms> <bars> <seq> <elapsed ms>"  ('-' = none)
+ *                "map tables <json>" / "map value <slot> <0–1>" / "map target <follow|track>" / "map params"
+ *                                                                   → [s sycore_map] (the SY.CORE Map device)
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName } = require('./link-core');
+const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
+  parseMapTables, parseMap, parseMapTarget, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.1.0'; // 1.1: Rig GEN / FILL
+const VERSION = '1.2.0'; // 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12)
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -40,6 +45,13 @@ let lastStats = '';
  *  so one added later shows it); null = no Rig Controller open in SY.CORE. */
 let rigState = null;
 let chordAt = 0; // when the chord sounding started (its seq first seen)
+/** SY.CORE Map (P12): the tables and the target as SY.CORE last sent them (to a Map device loaded
+ *  later), and the device's last info / track list (to a SY.CORE connecting later). */
+let mapTables = null, mapTarget = 'follow', mapInfo = null, mapTracks = null;
+function sendMapSetup() {
+  if (mapTables) toMax('map', 'tables', JSON.stringify(mapTables));
+  toMax('map', 'target', mapTarget);
+}
 
 /** Status lines on the device (words as separate atoms: Max shows them without quotes). */
 const words = t => String(t).split(' ');
@@ -105,6 +117,12 @@ if (max) {
   max.addHandler('track', safe('track', (...name) => { trackName = name.join(' ').replace(/^"(.*)"$/, '$1'); showInfo(); }));
   // A click on a SY.CORE Rig device: to SY.CORE as the rig action it is (rig_slot_drum_a, rig_mute_bass…).
   // Each click is logged in the Max console (an unknown one too): the way to see where a click stops.
+  // The SY.CORE Map device: loaded (tables and target to it), its instrument, values, tracks, parameters.
+  max.addHandler('mapready', safe('mapready', () => { log('map: device ready'); sendMapSetup(); }));
+  max.addHandler('mapinfo', safe('mapinfo', (...t) => { const m = mapInfoFromDevice(t); if (m) { mapInfo = m; broadcast(m); } }));
+  max.addHandler('mapvalue', safe('mapvalue', (slot, v) => { const m = mapValueFromDevice(slot, v); if (m) broadcast(m); }));
+  max.addHandler('maptracks', safe('maptracks', (...t) => { const m = mapTracksFromDevice(t); if (m) { mapTracks = m; broadcast(m); } }));
+  max.addHandler('mapparams', safe('mapparams', (...t) => { const m = mapParamsFromDevice(t); if (m) broadcast(m); }));
   max.addHandler('rigpress', safe('rigpress', name => {
     if (!rigName(name)) { log(`rig: ignored ${name}`); return; }
     log(`rig: ${name} → SY.CORE (${wss.clients.size} connected)`);
@@ -127,6 +145,8 @@ wss.on('connection', (ws, req) => {
   showInfo();
   send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max });
   send(ws, tr.snapshot(now()));
+  if (mapInfo) send(ws, mapInfo);
+  if (mapTracks) send(ws, mapTracks);
   ws.on('message', safe('message', text => {
     const { msg, error } = parseMessage(text);
     if (error) { send(ws, { type: 'error', ...error }); return; }
@@ -146,6 +166,10 @@ wss.on('connection', (ws, req) => {
         if (r && r.chord && (!rigState || !rigState.chord || rigState.chord.seq !== r.chord.seq)) chordAt = Date.now();
         rigState = r; sendRig(); break;
       }
+      case 'map-tables': { const t = parseMapTables(msg); if (t) { mapTables = t; toMax('map', 'tables', JSON.stringify(t)); } break; }
+      case 'map': { const r = parseMap(msg); if (r) toMax('map', 'value', r.slot, r.value); break; }
+      case 'map-target': { const t = parseMapTarget(msg); if (t !== undefined) { mapTarget = t; toMax('map', 'target', t); } break; }
+      case 'map-params-request': toMax('map', 'params'); break;
       case 'ping': send(ws, { type: 'pong', t: msg.t, beat: tr.beatAt(now()) }); break;
       case 'hello': log('client hello', msg.client || '?', msg.app || ''); break;
       default: break; // unknown types are ignored (forward compatibility)

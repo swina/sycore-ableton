@@ -379,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 8,
+          "numoutlets": 9,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -393,10 +394,10 @@
           "patching_rect": [
             30,
             300,
-            324,
+            352,
             22
           ],
-          "text": "route midi3 midi2 clear info stats state rig"
+          "text": "route midi3 midi2 clear info stats state rig map"
         }
       },
       {
@@ -431,6 +432,40 @@
             22
           ],
           "text": "r sycore_rig_in"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-maps",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            1140,
+            300,
+            100,
+            22
+          ],
+          "text": "s sycore_map"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-mapr",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1140,
+            220,
+            121,
+            22
+          ],
+          "text": "r sycore_map_in"
         }
       },
       {
@@ -1782,6 +1817,30 @@
         "patchline": {
           "source": [
             "obj-rigr",
+            0
+          ],
+          "destination": [
+            "obj-node",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            7
+          ],
+          "destination": [
+            "obj-maps",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-mapr",
             0
           ],
           "destination": [

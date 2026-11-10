@@ -235,4 +235,93 @@ function rigChord(c) {
 /** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, GEN, sections, Fill. */
 const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo|gen)_(chord|drum|seq|bass|arp)|section_[1-8]|fill)$/.test(String(n));
 
-module.exports = { parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+
+// ── SY.CORE Map (P12): Live's instruments driven by table ──────────────────
+// SY.CORE → bridge: `map-tables` (the tables by Live class_name), `map` (a slot moved),
+// `map-target` (follow the selected track, or one track), `map-params-request` (the full list).
+// The map device (Max [js]) → bridge → SY.CORE: `map-info`, `map-value`, `map-tracks`, `map-params`.
+const MAP_SLOTS = 16;
+const MAP_CLASSES = 64;
+const MAP_PARAMS = 512;
+const text = (v, n = 64) => String(v == null ? '' : v).slice(0, n);
+const finite = v => (v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined);
+const clamp01 = v => Math.max(0, Math.min(1, Number(v) || 0));
+const CLASS_RE = /^[A-Za-z0-9_]{1,64}$/;
+
+/** A table slot: { param (original_name), min?, max? (the parameter's units), int? } or null (empty). */
+function mapSlot(x) {
+  if (!x || typeof x !== 'object' || !x.param) return null;
+  const r = { param: text(x.param) };
+  const lo = finite(x.min), hi = finite(x.max);
+  if (lo !== undefined) r.min = lo;
+  if (hi !== undefined) r.max = hi;
+  if (x.int) r.int = 1;
+  return r;
+}
+/** `map-tables` → { <class_name>: [16 slots] } (unknown class names dropped); undefined if not one. */
+function parseMapTables(m) {
+  if (!m || m.type !== 'map-tables' || !m.tables || typeof m.tables !== 'object') return undefined;
+  const out = {};
+  for (const cls of Object.keys(m.tables).slice(0, MAP_CLASSES)) {
+    const t = m.tables[cls];
+    if (!CLASS_RE.test(cls) || !Array.isArray(t)) continue;
+    out[cls] = Array.from({ length: MAP_SLOTS }, (_, i) => mapSlot(t[i]));
+  }
+  return out;
+}
+/** `map` → { slot 0–15, value 0–1 }; undefined if not one. */
+function parseMap(m) {
+  if (!m || m.type !== 'map') return undefined;
+  const slot = int(m.slot, 0, MAP_SLOTS - 1, -1);
+  if (slot < 0 || finite(m.value) === undefined) return undefined;
+  return { slot, value: clamp01(m.value) };
+}
+/** `map-target` → 'follow' or a track index (0–999); undefined if not one. */
+function parseMapTarget(m) {
+  if (!m || m.type !== 'map-target') return undefined;
+  if (m.follow) return 'follow';
+  const t = int(m.track, 0, 999, -1);
+  return t < 0 ? undefined : t;
+}
+
+/** JSON text from the map device ([js] → node), or null. */
+function json(t) { try { const o = JSON.parse(Array.isArray(t) ? t.join(' ') : String(t)); return o && typeof o === 'object' ? o : null; } catch { return null; } }
+/** The map device's `mapinfo <json>` → the `map-info` message for SY.CORE (clamped), or null. */
+function mapInfoFromDevice(t) {
+  const o = json(t);
+  if (!o) return null;
+  const tr = o.track && typeof o.track === 'object' ? { index: int(o.track.index, -1, 999, -1), name: text(o.track.name, 128) } : null;
+  const dv = o.device && typeof o.device === 'object'
+    ? { name: text(o.device.name, 128), cls: text(o.device.cls), rack: o.device.rack ? text(o.device.rack, 128) : null } : null;
+  const mode = ['table', 'macros', 'none'].includes(o.mode) ? o.mode : 'none';
+  const slots = Array.from({ length: MAP_SLOTS }, (_, i) => {
+    const x = Array.isArray(o.slots) ? o.slots[i] : null;
+    return x && typeof x === 'object' ? { param: text(x.param), name: text(x.name || x.param), value: clamp01(x.value) } : null;
+  });
+  return { type: 'map-info', track: tr, device: dv, mode, slots };
+}
+/** `mapvalue <slot> <0–1>` → `map-value`, or null. */
+function mapValueFromDevice(slot, value) {
+  const s = int(slot, 0, MAP_SLOTS - 1, -1);
+  return s < 0 || finite(value) === undefined ? null : { type: 'map-value', slot: s, value: clamp01(value) };
+}
+/** `maptracks <json [{ index, name }]>` → `map-tracks`, or null. */
+function mapTracksFromDevice(t) {
+  const o = json(t);
+  if (!Array.isArray(o)) return null;
+  return { type: 'map-tracks', tracks: o.slice(0, 1000).map(x => ({ index: int(x && x.index, 0, 999, 0), name: text(x && x.name, 128) })) };
+}
+/** `mapparams <json { cls, name, params: [{ name, shown, min, max, q }] }>` → `map-params`, or null. */
+function mapParamsFromDevice(t) {
+  const o = json(t);
+  if (!o || !Array.isArray(o.params)) return null;
+  return {
+    type: 'map-params', cls: text(o.cls), name: text(o.name, 128),
+    params: o.params.slice(0, MAP_PARAMS).map(x => ({
+      name: text(x && x.name), shown: text(x && (x.shown || x.name)),
+      min: finite(x && x.min) ?? 0, max: finite(x && x.max) ?? 1, quantized: x && x.q ? 1 : 0,
+    })),
+  };
+}
+
+module.exports = { MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
