@@ -266,7 +266,7 @@
         "box": {
           "id": "obj-pW1",
           "maxclass": "message",
-          "text": "port MIDIWIN (A)",
+          "text": "port MIDIWIN (B)",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [
@@ -291,7 +291,7 @@
         "box": {
           "id": "obj-pW2",
           "maxclass": "message",
-          "text": "port MIDI WIN 2 (A)",
+          "text": "port MIDI WIN 2 (B)",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [
@@ -316,7 +316,7 @@
         "box": {
           "id": "obj-pW3",
           "maxclass": "message",
-          "text": "port MIDI WIN 3 (A)",
+          "text": "port MIDI WIN 3 (B)",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [
