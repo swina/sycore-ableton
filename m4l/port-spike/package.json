@@ -1,0 +1,14 @@
+{
+  "name": "sycore-port-spike",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Spike: can the SY.CORE Link bridge (Node for Max) play MIDI ports on Live's beat with low jitter? (MIDI Flow cables 'via SY.CORE Link')",
+  "main": "port-spike.js",
+  "scripts": {
+    "standalone": "node port-spike.js --standalone",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@julusian/midi": "^3.6.1"
+  }
+}
