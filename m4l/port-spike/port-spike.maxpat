@@ -264,9 +264,9 @@
       },
       {
         "box": {
-          "id": "obj-pX3",
+          "id": "obj-pW1",
           "maxclass": "message",
-          "text": "port X3",
+          "text": "port MIDIWIN (A)",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [
@@ -274,15 +274,65 @@
           ],
           "patching_rect": [
             320,
-            270,
-            65,
+            240,
+            128,
             22
           ],
           "presentation": 1,
           "presentation_rect": [
             4,
             28,
-            60,
+            110,
+            20
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-pW2",
+          "maxclass": "message",
+          "text": "port MIDI WIN 2 (A)",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            450,
+            240,
+            149,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            118,
+            28,
+            124,
+            20
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-pW3",
+          "maxclass": "message",
+          "text": "port MIDI WIN 3 (A)",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            600,
+            240,
+            149,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            246,
+            28,
+            124,
             20
           ]
         }
@@ -298,42 +348,85 @@
             ""
           ],
           "patching_rect": [
-            390,
-            270,
+            750,
+            240,
             114,
             22
           ],
           "presentation": 1,
           "presentation_rect": [
-            68,
+            374,
             28,
-            110,
+            104,
             20
           ]
         }
       },
       {
         "box": {
-          "id": "obj-ch1",
-          "maxclass": "message",
-          "text": "channel 1",
-          "numinlets": 2,
+          "id": "obj-chN",
+          "maxclass": "number",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": [
+            "",
+            ""
+          ],
+          "patching_rect": [
+            510,
+            270,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            532,
+            28,
+            34,
+            20
+          ],
+          "minimum": 1,
+          "maximum": 16
+        }
+      },
+      {
+        "box": {
+          "id": "obj-chP",
+          "maxclass": "newobj",
+          "text": "prepend channel",
+          "numinlets": 1,
           "numoutlets": 1,
           "outlettype": [
             ""
           ],
           "patching_rect": [
             510,
+            295,
+            121,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-chL",
+          "maxclass": "comment",
+          "text": "channel:",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "outlettype": [],
+          "patching_rect": [
+            450,
             270,
-            79,
+            72,
             22
           ],
           "presentation": 1,
           "presentation_rect": [
-            182,
-            28,
-            70,
-            20
+            484,
+            30,
+            50,
+            18
           ]
         }
       },
@@ -355,8 +448,8 @@
           ],
           "presentation": 1,
           "presentation_rect": [
-            256,
-            28,
+            250,
+            4,
             70,
             20
           ]
@@ -380,8 +473,8 @@
           ],
           "presentation": 1,
           "presentation_rect": [
-            330,
-            28,
+            324,
+            4,
             74,
             20
           ]
@@ -464,7 +557,7 @@
           "presentation_rect": [
             4,
             78,
-            560,
+            562,
             20
           ]
         }
@@ -507,7 +600,7 @@
           "presentation_rect": [
             4,
             54,
-            400,
+            562,
             20
           ]
         }
@@ -564,7 +657,7 @@
           "presentation_rect": [
             4,
             104,
-            560,
+            562,
             36
           ]
         }
@@ -742,7 +835,31 @@
       {
         "patchline": {
           "source": [
-            "obj-pX3",
+            "obj-pW1",
+            0
+          ],
+          "destination": [
+            "obj-node",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-pW2",
+            0
+          ],
+          "destination": [
+            "obj-node",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-pW3",
             0
           ],
           "destination": [
@@ -755,18 +872,6 @@
         "patchline": {
           "source": [
             "obj-pSyc",
-            0
-          ],
-          "destination": [
-            "obj-node",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "source": [
-            "obj-ch1",
             0
           ],
           "destination": [
@@ -791,6 +896,30 @@
         "patchline": {
           "source": [
             "obj-pOff",
+            0
+          ],
+          "destination": [
+            "obj-node",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-chN",
+            0
+          ],
+          "destination": [
+            "obj-chP",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-chP",
             0
           ],
           "destination": [

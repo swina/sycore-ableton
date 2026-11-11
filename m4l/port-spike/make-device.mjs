@@ -17,9 +17,13 @@ const B = [
   ['inst', 'script npm install', 2, 1, 30, 270, 'message'],
   ['start', 'script start', 2, 1, 160, 270, 'message'],
   ['ports', 'ports', 2, 1, 260, 270, 'message'],
-  ['pX3', 'port X3', 2, 1, 320, 270, 'message'],
-  ['pSyc', 'port SYC OUT A', 2, 1, 390, 270, 'message'],
-  ['ch1', 'channel 1', 2, 1, 510, 270, 'message'],
+  ['pW1', 'port MIDIWIN (A)', 2, 1, 320, 240, 'message'],
+  ['pW2', 'port MIDI WIN 2 (A)', 2, 1, 450, 240, 'message'],
+  ['pW3', 'port MIDI WIN 3 (A)', 2, 1, 600, 240, 'message'],
+  ['pSyc', 'port SYC OUT A', 2, 1, 750, 240, 'message'],
+  ['chN', 'number', 1, 2, 510, 270, 'number'],
+  ['chP', 'prepend channel', 1, 1, 510, 295],
+  ['chL', 'channel:', 1, 0, 450, 270, 'comment'],
   ['pOn', 'pattern on', 2, 1, 590, 270, 'message'],
   ['pOff', 'pattern off', 2, 1, 670, 270, 'message'],
   ['node', `node.script ${DIR}/port-spike.js @autostart 1`, 1, 2, 30, 310],
@@ -37,17 +41,24 @@ const L = [
   ['lp', 0, 'obP', 1], ['lp', 0, 'obB', 1], ['lp', 0, 'obT', 1],
   ['obP', 0, 'pak', 0], ['obB', 0, 'pak', 1], ['obT', 0, 'pak', 2],
   ['pak', 0, 'pre', 0], ['pre', 0, 'node', 0],
-  ...['inst', 'start', 'ports', 'pX3', 'pSyc', 'ch1', 'pOn', 'pOff'].map(k => [k, 0, 'node', 0]),
+  ...['inst', 'start', 'ports', 'pW1', 'pW2', 'pW3', 'pSyc', 'pOn', 'pOff'].map(k => [k, 0, 'node', 0]),
+  ['chN', 0, 'chP', 0], ['chP', 0, 'node', 0],
   ['node', 0, 'route', 0], ['route', 0, 'setS', 0], ['setS', 0, 'stat', 0], ['route', 1, 'setP', 0], ['setP', 0, 'portM', 0],
   ['in', 0, 'out', 0],
 ];
 const id = k => 'obj-' + k;
 // Live shows the device in presentation: the controls and the stats, in a 570 × 150 strip.
-const PRES = {"inst": [4, 4, 110, 20], "start": [118, 4, 70, 20], "ports": [192, 4, 44, 20], "pX3": [4, 28, 60, 20], "pSyc": [68, 28, 110, 20], "ch1": [182, 28, 70, 20], "pOn": [256, 28, 70, 20], "pOff": [330, 28, 74, 20], "portM": [4, 54, 400, 20], "stat": [4, 78, 560, 20], "c1": [4, 104, 560, 36]};
+const PRES = {
+  inst: [4, 4, 110, 20], start: [118, 4, 70, 20], ports: [192, 4, 44, 20], pOn: [250, 4, 70, 20], pOff: [324, 4, 74, 20],
+  pW1: [4, 28, 110, 20], pW2: [118, 28, 124, 20], pW3: [246, 28, 124, 20], pSyc: [374, 28, 104, 20],
+  chL: [484, 30, 50, 18], chN: [532, 28, 34, 20],
+  portM: [4, 54, 562, 20], stat: [4, 78, 562, 20], c1: [4, 104, 562, 36],
+};
 const boxes = B.map(([k, text, ni, no, x, y, kind = 'newobj']) => ({ box: {
   id: id(k), maxclass: kind, text, numinlets: ni, numoutlets: no,
   outlettype: Array(no).fill(''), patching_rect: [x, y, Math.max(60, text.length * 7 + 16), 22],
   ...(PRES[k] ? { presentation: 1, presentation_rect: PRES[k] } : {}),
+  ...(kind === 'number' ? { minimum: 1, maximum: 16, text: undefined } : {}),
 }}));
 const lines = L.map(([s, so, d, di]) => ({ patchline: { source: [id(s), so], destination: [id(d), di] } }));
 const patcher = { patcher: { fileversion: 1, appversion: { major: 8, minor: 6, revision: 0, architecture: 'x64', modernui: 1 },
