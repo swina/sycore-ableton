@@ -23,10 +23,10 @@
  */
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
+const { TimedQueue, PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.3.5'; // 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.4.0'; // 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -88,7 +88,84 @@ function sendRig() {
 function clearAll() {
   toMax('clear');
   for (const off of sched.clear(now())) sendMidi(off, -1);
+  clearPorts();
 }
+
+// ── MIDI ports played by the bridge (1.4) ─────────────────────────────────────────
+// SY.CORE's MIDI Flow cables "via SY.CORE Link": a message with `port` goes to that MIDI port
+// (Emulator X3 on a Windows MIDI Services loopback…) at its Live beat, from this process — not
+// from the browser's main thread, which delayed it by 5–240 ms. Node's MIDI: @julusian/midi
+// (RtMidi, N-API, Windows binaries included).
+let midiLib = null;
+try { midiLib = require('@julusian/midi'); } catch (e) { log('MIDI ports off (@julusian/midi not found: script npm install):', e.message); }
+const ports = new Map(); // lower-case name → { name, out, sched } | { name, missing: true }
+const portQueue = new TimedQueue({ now });
+let portMissing = 0;
+let midiFailLogged = false;
+function listPorts() {
+  if (!midiLib) return [];
+  try {
+    const o = new midiLib.Output();
+    const names = [];
+    for (let i = 0; i < o.getPortCount(); i++) names.push(o.getPortName(i));
+    try { o.closePort(); } catch {}
+    return names;
+  } catch (e) {
+    if (!midiFailLogged) { midiFailLogged = true; log('MIDI ports unavailable:', e.message); }
+    return [];
+  }
+}
+/** The open port named `name` (exact, case-insensitive; else the first containing it), or null. */
+function portFor(name) {
+  const key = String(name).toLowerCase().trim();
+  const had = ports.get(key);
+  if (had) return had.missing ? null : had;
+  if (!midiLib) return null;
+  const names = listPorts();
+  let i = names.findIndex(n => n.toLowerCase().trim() === key);
+  if (i < 0) i = names.findIndex(n => n.toLowerCase().includes(key));
+  if (i < 0) {
+    log('MIDI port not found:', JSON.stringify(name), '· ports:', names.join(' | '));
+    ports.set(key, { name, missing: true });
+    return null;
+  }
+  let out;
+  try { out = new midiLib.Output(); out.openPort(i); } catch (e) { log('MIDI port', names[i], 'failed to open:', e.message); ports.set(key, { name, missing: true }); return null; }
+  const p = { name: names[i], out, sched: new MidiScheduler(tr) };
+  ports.set(key, p);
+  log('MIDI port open:', p.name);
+  return p;
+}
+function portSend(p, data) { try { p.out.sendMessage(data); } catch (e) { log('MIDI port', p.name, 'send failed:', e.message); } }
+/** A `midi` message with `port`: on its Live beat (or now), from the timed queue. */
+function routePort(msg) {
+  const p = portFor(msg.port);
+  if (!p) { portMissing++; return; }
+  const r = p.sched.schedule(msg, now());
+  if (!r) return;
+  if (r.delayMs <= 0.5) portSend(p, r.data);
+  else portQueue.at(now() + r.delayMs, () => portSend(p, r.data));
+}
+/** Drop what is pending on the ports and end the notes sounding there. */
+function clearPorts() {
+  portQueue.clear();
+  for (const p of ports.values()) if (!p.missing) for (const off of p.sched.clear(now())) portSend(p, off);
+}
+/** Ports part of the stats (null when no port traffic). */
+function takePortStats() {
+  let msgs = 0, late = 0, dropped = 0;
+  for (const p of ports.values()) {
+    if (p.missing) continue;
+    const st = p.sched.takeStats();
+    if (st) { msgs += st.msgs; late += st.late; dropped += st.dropped; }
+  }
+  const t = portQueue.st; portQueue.resetStats();
+  const missing = portMissing; portMissing = 0;
+  if (!msgs && !late && !dropped && !missing) return null;
+  return { portMsgs: msgs, portLate: late, portDropped: dropped, portMissing: missing, portTimerMaxMs: Math.round(t.lateMax * 100) / 100 };
+}
+// A port can come back (plugged in, loopback created): forget the missing ones now and then.
+setInterval(() => { for (const [k, p] of ports) if (p.missing) ports.delete(k); }, 5000);
 
 // ── WebSocket server ────────────────────────────────────────────────────────
 // Created before the Max handlers: Max delivers Live's transport reports as soon as
@@ -142,13 +219,19 @@ if (max) {
 // ── WebSocket (connection handling) ─────────────────────────────────────────
 
 setInterval(() => broadcast(tr.snapshot(now())), 50);
-setInterval(() => { const s = sched.takeStats(); if (s) broadcast(s); showStats(s); }, 1000);
+setInterval(() => {
+  const s = sched.takeStats();
+  const ps = takePortStats();
+  const all = s || ps ? { ...(s || { type: 'stats', msgs: 0, late: 0, dropped: 0, reportJitterMs: null, leadMinMs: null, leadAvgMs: null }), ...(ps || {}) } : null;
+  if (all) broadcast(all);
+  showStats(all);
+}, 1000);
 setInterval(safe('rig', sendRig), 1000);
 
 wss.on('connection', (ws, req) => {
   log('client connected from', req.headers.origin || '?');
   showInfo();
-  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max });
+  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max, ports: !!midiLib });
   send(ws, tr.snapshot(now()));
   if (mapInfo) send(ws, mapInfo);
   if (mapTracks) send(ws, mapTracks);
@@ -158,6 +241,7 @@ wss.on('connection', (ws, req) => {
     if (!msg) return;
     switch (msg.type) {
       case 'midi': {
+        if (msg.port !== undefined && msg.port !== null && msg.port !== '') { routePort(msg); break; }
         const r = sched.schedule(msg, now());
         // Diagnostics: the first few refused messages, as received.
         if (!r && rejectLogs < 5) { rejectLogs++; log('refused midi:', JSON.stringify(msg).slice(0, 160), `playing=${tr.playing} beatNow=${tr.beatAt(now()).toFixed(3)}`); }
@@ -165,6 +249,7 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'clear': clearAll(); break;
+      case 'ports': send(ws, { type: 'ports', names: listPorts() }); break;
       case 'rig': {
         const r = parseRig(msg);
         if (r === undefined) break;

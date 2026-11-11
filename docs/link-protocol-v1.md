@@ -10,7 +10,7 @@ Times:
 | From | Message | Fields |
 |---|---|---|
 | client | `hello` | `client: "sycore"`, `app` (version string) |
-| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live) |
+| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports) |
 
 The device sends its `hello` and a `transport` on connect, without waiting for the client's.
 
@@ -25,7 +25,11 @@ Sent on every change of playing / tempo / signature, and every 50 ms while conne
 - A message later than 5 ms is played at once if it is a note-off or a CC; a late note-on is dropped (counted in `stats`).
 - The device tracks sounding notes (per channel and pitch) so `clear` can end them.
 
-`clear` (client → device): drop every pending message and send a note-off for every note sounding now. Sent by SY.CORE on stop, on panic and before closing.
+`port` (bridge 1.4+, when the device's `hello` has `ports: true`): the name of a MIDI output port (e.g. `MIDIWIN (B)`, a Windows MIDI Services loopback to Emulator X3). The device sends the message to that port itself, at its Live beat, from a timed queue in its own process (Node, `@julusian/midi`) — instead of the device's track. Name match: exact, case-insensitive, else the first port containing it. A port not found is counted in `stats` (`portMissing`) and logged once in Max's console. Used by SY.CORE for the MIDI Flow cables marked "via SY.CORE Link": the browser's main thread no longer decides when they leave (it delayed them by 5–240 ms; Windows loopbacks ignore Web MIDI timestamps).
+
+`ports` (client → device, 1.4+): the device answers `ports` with `names` (its MIDI output ports).
+
+`clear` (client → device): drop every pending message and send a note-off for every note sounding now — on the device's track and on the ports. Sent by SY.CORE on stop, on panic and before closing.
 
 The device also runs `clear` by itself when the last client disconnects.
 
@@ -34,7 +38,7 @@ The device also runs `clear` by itself when the last client disconnects.
 |---|---|---|
 | client | `ping` | `t` |
 | device | `pong` | `t` (echoed), `beat`, `nt` (the device's clock, ms; 1.3.4+) |
-| device | `stats` | every second while MIDI arrives: `msgs`, `late`, `dropped`, `leadMinMs`, `leadAvgMs` |
+| device | `stats` | every second while MIDI arrives: `msgs`, `late`, `dropped`, `leadMinMs`, `leadAvgMs`; 1.4+: `portMsgs`, `portLate`, `portDropped`, `portMissing`, `portTimerMaxMs` (how late the timed queue sent, max) |
 | device | `error` | `code` (`version`, `bad-message`), `message` |
 
 ## Rig Controller (SY.CORE Rig devices)

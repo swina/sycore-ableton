@@ -202,3 +202,53 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   const p = mapParamsFromDevice(JSON.stringify({ cls: 'OriginalSimpler', name: 'Bass', params: [{ name: 'Volume', min: -36, max: 36 }, { name: 'F On', q: 1 }] }));
   assert.deepEqual(p.params, [{ name: 'Volume', shown: 'Volume', min: -36, max: 36, quantized: 0 }, { name: 'F On', shown: 'F On', min: 0, max: 1, quantized: 1 }]);
 });
+
+// ── TimedQueue (MIDI ports played by the bridge, 1.4) ─────────────────────────
+const { TimedQueue } = require('./link-core');
+function fakeClock() {
+  let t = 0; const timers = [];
+  return {
+    now: () => t,
+    setTimer: (fn, ms) => { const id = { fn, at: t + ms }; timers.push(id); return id; },
+    clearTimer: id => { const i = timers.indexOf(id); if (i >= 0) timers.splice(i, 1); },
+    advance(ms) { // fires timers in order; the spin in run() sees the time already reached
+      const end = t + ms;
+      for (;;) {
+        timers.sort((a, b) => a.at - b.at);
+        const next = timers[0];
+        if (!next || next.at > end) break;
+        timers.shift(); t = Math.max(t, next.at); next.fn();
+      }
+      t = end;
+    },
+    set(v) { t = v; },
+  };
+}
+
+test('timed queue: messages run in time order, at their time', () => {
+  const c = fakeClock();
+  const q = new TimedQueue({ now: c.now, setTimer: c.setTimer, clearTimer: c.clearTimer, wakeEarlyMs: 0, spinMaxMs: 0 });
+  const got = [];
+  q.at(30, () => got.push(['b', c.now()]));
+  q.at(10, () => got.push(['a', c.now()]));
+  c.advance(5); assert.deepEqual(got, []);
+  c.advance(40);
+  assert.deepEqual(got, [['a', 10], ['b', 30]]);
+  assert.equal(q.size, 0);
+});
+
+test('timed queue: clear drops what is pending', () => {
+  const c = fakeClock();
+  const q = new TimedQueue({ now: c.now, setTimer: c.setTimer, clearTimer: c.clearTimer, wakeEarlyMs: 0, spinMaxMs: 0 });
+  const got = [];
+  q.at(10, () => got.push(1));
+  q.clear();
+  c.advance(50);
+  assert.deepEqual(got, []);
+});
+
+test('a port message: its own scheduler places it on the beat (delay), a beat-less one goes at once', () => {
+  const s = new MidiScheduler(playingAt120());
+  assert.ok(Math.abs(s.schedule({ data: [0x93, 60, 100], beat: 2, port: 'MIDIWIN (B)' }, 900).delayMs - 100) < 1e-6);
+  assert.equal(s.schedule({ data: [0x83, 60, 0], port: 'MIDIWIN (B)' }, 950).delayMs, 0);
+});

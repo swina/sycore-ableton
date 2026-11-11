@@ -9,6 +9,7 @@
     "sim": "node sycore-link.js --sim"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@julusian/midi": "^3.8.1"
   }
 }

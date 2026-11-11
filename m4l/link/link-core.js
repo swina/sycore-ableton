@@ -175,6 +175,49 @@ class MidiScheduler {
   }
 }
 
+/**
+ * Messages at exact times (MIDI ports played by the bridge, protocol 1.4): a system timer wakes
+ * `wakeEarlyMs` before the first one, then a short spin up to its time — Node's timers alone are
+ * ~1 ms off at best, 15.6 ms on some Windows setups. Measured in the port spike (2026-11-11, Max's
+ * Node 22 on Windows 11): 0.01 ms typical, 0.22 ms max.
+ */
+class TimedQueue {
+  constructor({ now, setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = id => clearTimeout(id), wakeEarlyMs = 2, spinMaxMs = 4 } = {}) {
+    this.now = now; this.setTimer = setTimer; this.clearTimer = clearTimer;
+    this.wakeEarlyMs = wakeEarlyMs; this.spinMaxMs = spinMaxMs;
+    this.q = []; this.timer = null; this.resetStats();
+  }
+  resetStats() { this.st = { n: 0, lateMax: 0 }; }
+  get size() { return this.q.length; }
+  /** Run `fn` at `t` (the clock of `now`). */
+  at(t, fn) {
+    let i = this.q.length;
+    while (i > 0 && this.q[i - 1].t > t) i--;
+    this.q.splice(i, 0, { t, fn });
+    this.arm();
+  }
+  /** Drop everything pending. */
+  clear() { this.q = []; if (this.timer !== null) { this.clearTimer(this.timer); this.timer = null; } }
+  arm() {
+    if (this.timer !== null) { this.clearTimer(this.timer); this.timer = null; }
+    if (!this.q.length) return;
+    this.timer = this.setTimer(() => this.run(), Math.max(0, this.q[0].t - this.now() - this.wakeEarlyMs));
+  }
+  run() {
+    this.timer = null;
+    let now = this.now();
+    if (this.q.length && this.q[0].t - now <= this.spinMaxMs) while ((now = this.now()) < this.q[0].t) { /* spin */ }
+    while (this.q.length && this.q[0].t <= now + 0.05) {
+      const e = this.q.shift();
+      const late = this.now() - e.t;
+      this.st.n++; if (late > this.st.lateMax) this.st.lateMax = late;
+      try { e.fn(); } catch { /* a send failing must not stop the queue */ }
+      now = this.now();
+    }
+    this.arm();
+  }
+}
+
 /** Device status line: clients connected, or what it waits for. */
 function infoText({ clients = 0, port, error = null, track = '' }) {
   if (error) return error;
@@ -192,7 +235,8 @@ function infoState({ clients = 0, error = null }) {
 function statsText(s) {
   if (!s) return 'idle';
   const lead = s.leadMinMs === null ? '' : ` · lead ${Math.round(s.leadMinMs)} ms`;
-  return `${s.msgs} msgs/s · ${s.late} late · ${s.dropped} dropped${lead}`;
+  const ports = s.portMsgs ? ` · ports ${s.portMsgs} msgs, timer ${s.portTimerMaxMs} ms${s.portMissing ? `, ${s.portMissing} to missing ports` : ''}` : '';
+  return `${s.msgs} msgs/s · ${s.late} late · ${s.dropped} dropped${lead}${ports}`;
 }
 
 /** Parse one incoming text frame: { msg } or { error } (to send back), or {} to ignore. */
@@ -338,4 +382,4 @@ function mapParamsFromDevice(t) {
   };
 }
 
-module.exports = { MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { TimedQueue, MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
