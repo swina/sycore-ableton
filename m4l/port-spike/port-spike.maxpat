@@ -15,7 +15,8 @@
       900,
       520
     ],
-    "openinpresentation": 0,
+    "openinpresentation": 1,
+    "devicewidth": 570,
     "boxes": [
       {
         "box": {
@@ -201,6 +202,13 @@
             270,
             142,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            4,
+            4,
+            110,
+            20
           ]
         }
       },
@@ -219,6 +227,13 @@
             270,
             100,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            118,
+            4,
+            70,
+            20
           ]
         }
       },
@@ -237,6 +252,13 @@
             270,
             60,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            192,
+            4,
+            44,
+            20
           ]
         }
       },
@@ -255,6 +277,13 @@
             270,
             65,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            4,
+            28,
+            60,
+            20
           ]
         }
       },
@@ -273,6 +302,13 @@
             270,
             114,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            68,
+            28,
+            110,
+            20
           ]
         }
       },
@@ -291,6 +327,13 @@
             270,
             79,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            182,
+            28,
+            70,
+            20
           ]
         }
       },
@@ -309,6 +352,13 @@
             270,
             86,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            256,
+            28,
+            70,
+            20
           ]
         }
       },
@@ -327,6 +377,13 @@
             270,
             93,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            330,
+            28,
+            74,
+            20
           ]
         }
       },
@@ -402,6 +459,13 @@
             410,
             60,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            4,
+            78,
+            560,
+            20
           ]
         }
       },
@@ -438,6 +502,13 @@
             410,
             60,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            4,
+            54,
+            400,
+            20
           ]
         }
       },
@@ -479,15 +550,22 @@
         "box": {
           "id": "obj-c1",
           "maxclass": "comment",
-          "text": "port-spike: pick a port (ports lists them in the Max console), Live in Play: a C chord on every beat",
+          "text": "Pick a port (ports: list in the Max console) and a channel, Live in Play: a C chord on every beat. Stats: lateness of the sends (timer quality).",
           "numinlets": 1,
           "numoutlets": 0,
           "outlettype": [],
           "patching_rect": [
             30,
             440,
-            716,
+            1024,
             22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            4,
+            104,
+            560,
+            36
           ]
         }
       }

@@ -30,7 +30,7 @@ const B = [
   ['portM', '-', 2, 1, 330, 410, 'message'],
   ['in', 'midiin', 1, 1, 560, 380],
   ['out', 'midiout', 1, 0, 560, 410],
-  ['c1', 'port-spike: pick a port (ports lists them in the Max console), Live in Play: a C chord on every beat', 1, 0, 30, 440, 'comment'],
+  ['c1', 'Pick a port (ports: list in the Max console) and a channel, Live in Play: a C chord on every beat. Stats: lateness of the sends (timer quality).', 1, 0, 30, 440, 'comment'],
 ];
 const L = [
   ['dev', 0, 'tb', 0], ['tb', 0, 'path', 0], ['path', 0, 'lp', 0],
@@ -42,13 +42,16 @@ const L = [
   ['in', 0, 'out', 0],
 ];
 const id = k => 'obj-' + k;
+// Live shows the device in presentation: the controls and the stats, in a 570 × 150 strip.
+const PRES = {"inst": [4, 4, 110, 20], "start": [118, 4, 70, 20], "ports": [192, 4, 44, 20], "pX3": [4, 28, 60, 20], "pSyc": [68, 28, 110, 20], "ch1": [182, 28, 70, 20], "pOn": [256, 28, 70, 20], "pOff": [330, 28, 74, 20], "portM": [4, 54, 400, 20], "stat": [4, 78, 560, 20], "c1": [4, 104, 560, 36]};
 const boxes = B.map(([k, text, ni, no, x, y, kind = 'newobj']) => ({ box: {
   id: id(k), maxclass: kind, text, numinlets: ni, numoutlets: no,
   outlettype: Array(no).fill(''), patching_rect: [x, y, Math.max(60, text.length * 7 + 16), 22],
+  ...(PRES[k] ? { presentation: 1, presentation_rect: PRES[k] } : {}),
 }}));
 const lines = L.map(([s, so, d, di]) => ({ patchline: { source: [id(s), so], destination: [id(d), di] } }));
 const patcher = { patcher: { fileversion: 1, appversion: { major: 8, minor: 6, revision: 0, architecture: 'x64', modernui: 1 },
-  classnamespace: 'box', rect: [100, 100, 900, 520], openinpresentation: 0, boxes, lines } };
+  classnamespace: 'box', rect: [100, 100, 900, 520], openinpresentation: 1, devicewidth: 570, boxes, lines } };
 const json = JSON.stringify(patcher, null, 2);
 writeFileSync(new URL('./port-spike.maxpat', import.meta.url), json);
 const u32 = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
