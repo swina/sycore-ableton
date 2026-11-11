@@ -29,12 +29,19 @@ test('a note ahead of its beat is delayed by the lead', () => {
   assert.equal(st.msgs, 1); assert.equal(st.leadMinMs, 100);
 });
 
-test('a late note-on is dropped, a late note-off goes out at once', () => {
+test('a note-on over 250 ms late is dropped, a late note-off goes out at once', () => {
   const s = new MidiScheduler(playingAt120());
-  assert.equal(s.schedule({ data: [0x90, 60, 100], beat: 1 }, 600), null);
-  assert.deepEqual(s.schedule({ data: [0x80, 60, 0], beat: 1 }, 600), { data: [0x80, 60, 0], delayMs: 0, beat: null });
+  assert.equal(s.schedule({ data: [0x90, 60, 100], beat: 1 }, 800), null);
+  assert.deepEqual(s.schedule({ data: [0x80, 60, 0], beat: 1 }, 800), { data: [0x80, 60, 0], delayMs: 0, beat: null });
   const st = s.takeStats();
   assert.equal(st.late, 2); assert.equal(st.dropped, 1);
+});
+
+test('a note-on up to 250 ms late plays at once (counted late, not dropped)', () => {
+  const s = new MidiScheduler(playingAt120());
+  assert.deepEqual(s.schedule({ data: [0x90, 60, 100], beat: 1 }, 700), { data: [0x90, 60, 100], delayMs: 0, beat: null });
+  const st = s.takeStats();
+  assert.equal(st.late, 1); assert.equal(st.dropped, 0);
 });
 
 test('within 5 ms late still plays (no drop)', () => {
@@ -83,13 +90,30 @@ test('parseMessage: JSON, type, version', () => {
   assert.equal(parseMessage('{"v":1}').error.code, 'bad-message');
 });
 
-test('position reports are smoothed: one read 20 ms late barely moves the estimate, one ahead counts more', () => {
+test('position reports: the least late one of the last 2 s sets the estimate (late ones do not pull it back)', () => {
+  const tr = playingAt120(); // beat 0 at 0 ms, 120 BPM = 2 beats/s
+  tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500); // read 20 ms late
+  assert.ok(Math.abs(tr.beatAt(500) - 1) < 1e-9); // the start report (on time) still holds
+  tr.set({ playing: 1, beat: 2 - 0.01, tempo: 120 }, 1000); // 5 ms late
+  assert.ok(Math.abs(tr.beatAt(1000) - 2) < 1e-9);
+  // once the on-time reports leave the window the least late one left (5 ms) sets it
+  tr.set({ playing: 1, beat: 6 - 0.03, tempo: 120 }, 3000);
+  assert.ok(Math.abs(tr.beatAt(3000) - (6 - 0.01)) < 1e-9);
+  // a report ahead of the estimate (less late than all) is taken at once
+  tr.set({ playing: 1, beat: 6.2, tempo: 120 }, 3100);
+  assert.ok(Math.abs(tr.beatAt(3100) - 6.2) < 1e-9);
+});
+
+test('position reports 0–25 ms late at random: the estimate stays within 4 ms of the true beat (the old smoothing: ~9)', () => {
   const tr = playingAt120();
-  tr.set({ playing: 1, beat: 1 - 0.04, tempo: 120 }, 500);
-  assert.ok(Math.abs(tr.beatAt(500) - (1 - 0.04 * 0.02)) < 1e-9);
-  const tr2 = playingAt120();
-  tr2.set({ playing: 1, beat: 1 + 0.04, tempo: 120 }, 500);
-  assert.ok(Math.abs(tr2.beatAt(500) - (1 + 0.04 * 0.3)) < 1e-9);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let worst = 0;
+  for (let t = 50; t < 20000; t += 50) {
+    const late = rnd() * 25; // ms
+    tr.set({ playing: 1, beat: (t - late) / 500, tempo: 120 }, t);
+    if (t > 2500) worst = Math.max(worst, Math.abs(tr.beatAt(t) - t / 500) * 500);
+  }
+  assert.ok(worst < 4, `worst ${worst} ms`);
 });
 
 test('a jump in position is taken at once', () => {

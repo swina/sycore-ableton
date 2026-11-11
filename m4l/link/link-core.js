@@ -5,24 +5,28 @@
  */
 const PROTOCOL_VERSION = 1;
 const LATE_TOLERANCE_MS = 5;
+// A note-on later than this is dropped; up to it, it plays at once (counted late). The first chord after
+// a start can come ~200 ms late (the page starting its apps): better heard late than lost with its strum.
+const PLAY_LATE_MS = 250;
 
 /** A position this far off the estimate is a jump (loop, relocation), not delivery jitter (beats). */
 const JUMP_BEATS = 0.25;
-/** Share of a report's error taken into the estimate: a report is never early (true when Live
- *  sent it, read later), so one ahead of the estimate counts a good part, one behind it barely. */
-const GAIN_AHEAD = 0.3;
-const GAIN_BEHIND = 0.02;
+/** A report is never early (true when Live made it, read later by a varying amount: 10–25 ms
+ *  measured, Live's UI thread and audio buffers). Each one, carried forward to now, is a lower bound
+ *  of Live's beat: the estimate is the highest of those over this window (the least late report),
+ *  a steady line instead of one moved a few ms by every report (the ports' timing follows it). */
+const ENVELOPE_MS = 2000;
 
 class Transport {
-  constructor() { this.playing = false; this.beat = 0; this.tempo = 120; this.num = 4; this.den = 4; this.at = 0; this.resetJitter(); }
+  constructor() { this.playing = false; this.beat = 0; this.tempo = 120; this.num = 4; this.den = 4; this.at = 0; this.env = []; this.resetJitter(); }
 
   resetJitter() { this.jitter = { maxLateMs: 0, n: 0 }; }
 
   /**
    * A report from Live. Returns true when playing, tempo or signature changed.
    * Live reports the position from its UI thread, each report some ms late by a varying
-   * amount: while playing at a steady tempo the estimate follows the reports smoothed
-   * (part of each error), a big difference is a jump and is taken at once. The note times
+   * amount: while playing at a steady tempo the estimate is the least late report of the last
+   * ENVELOPE_MS carried forward; a big difference is a jump and is taken at once. The note times
    * don't depend on it: Max places each note from its own [transport] (see sycore-link.js);
    * this estimate decides lateness and feeds the client's mirror.
    */
@@ -36,17 +40,24 @@ class Transport {
     const hasBeat = beat !== undefined && Number.isFinite(Number(beat));
     const predicted = this.beatAt(now);
     this.playing = p; this.tempo = t; this.num = n; this.den = d;
+    const perMs = t / 60000;
     if (!hasBeat) {
-      this.beat = predicted;
+      this.beat = predicted; this.env = [];
     } else if (!steady) {
-      this.beat = Number(beat);
+      this.beat = Number(beat); this.env = [{ at: now, o: this.beat - now * perMs }];
     } else {
       const err = Number(beat) - predicted;
-      if (Math.abs(err) > JUMP_BEATS) this.beat = Number(beat);
-      else {
-        this.beat = predicted + err * (err > 0 ? GAIN_AHEAD : GAIN_BEHIND);
+      if (Math.abs(err) > JUMP_BEATS) {
+        this.beat = Number(beat); this.env = [{ at: now, o: this.beat - now * perMs }];
+      } else {
+        // o: the report's beat at time 0 on this tempo line — the highest o is the least late report
+        this.env.push({ at: now, o: Number(beat) - now * perMs });
+        while (this.env.length > 1 && this.env[0].at < now - ENVELOPE_MS) this.env.shift();
+        let best = -Infinity;
+        for (const e of this.env) if (e.o > best) best = e.o;
+        this.beat = best + now * perMs;
         this.jitter.n++;
-        const offMs = (Math.abs(err) * 60000) / t;
+        const offMs = Math.abs(err) / perMs;
         if (offMs > this.jitter.maxLateMs) this.jitter.maxLateMs = offMs;
       }
     }
@@ -137,7 +148,7 @@ class MidiScheduler {
         const lead = (beat - this.tr.beatAt(now)) * this.tr.msPerBeat();
         if (lead < -LATE_TOLERANCE_MS) {
           this.st.late++;
-          if (isNoteOn(data)) { this.st.dropped++; return null; }
+          if (isNoteOn(data) && lead < -PLAY_LATE_MS) { this.st.dropped++; return null; }
         } else {
           this.st.leadN++; this.st.leadSum += lead;
           if (lead < this.st.leadMin) this.st.leadMin = lead;
@@ -382,4 +393,4 @@ function mapParamsFromDevice(t) {
   };
 }
 
-module.exports = { TimedQueue, MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { PLAY_LATE_MS, TimedQueue, MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
