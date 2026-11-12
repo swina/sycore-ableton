@@ -379,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 9,
+          "numoutlets": 10,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -394,10 +395,46 @@
           "patching_rect": [
             30,
             300,
-            352,
+            387,
             22
           ],
-          "text": "route midi3 midi2 clear info stats state rig map"
+          "text": "route midi3 midi2 clear info stats state rig map play"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-pset",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1280,
+            300,
+            170,
+            22
+          ],
+          "text": "prepend set is_playing"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-lobj",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1280,
+            330,
+            93,
+            22
+          ],
+          "text": "live.object"
         }
       },
       {
@@ -2030,6 +2067,42 @@
           "destination": [
             "obj-node",
             0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            8
+          ],
+          "destination": [
+            "obj-pset",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-pset",
+            0
+          ],
+          "destination": [
+            "obj-lobj",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-lp",
+            0
+          ],
+          "destination": [
+            "obj-lobj",
+            1
           ]
         }
       },

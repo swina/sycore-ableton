@@ -26,7 +26,7 @@ const { WebSocketServer } = require('ws');
 const { TimedQueue, PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.4.2'; // 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.5.0'; // 1.5.0: Play / Stop Live from SY.CORE ('play', hello `play`) · 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -231,7 +231,7 @@ setInterval(safe('rig', sendRig), 1000);
 wss.on('connection', (ws, req) => {
   log('client connected from', req.headers.origin || '?');
   showInfo();
-  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max, ports: !!midiLib });
+  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max, ports: !!midiLib, play: true });
   send(ws, tr.snapshot(now()));
   if (mapInfo) send(ws, mapInfo);
   if (mapTracks) send(ws, mapTracks);
@@ -249,6 +249,8 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'clear': clearAll(); break;
+      // Play / Stop Live (SY.CORE's Play button): live_set is_playing, in the patch
+      case 'play': if (typeof msg.on === 'boolean') { log(msg.on ? 'play' : 'stop', 'from SY.CORE'); toMax('play', msg.on ? 1 : 0); } break;
       case 'ports': send(ws, { type: 'ports', names: listPorts() }); break;
       case 'rig': {
         const r = parseRig(msg);

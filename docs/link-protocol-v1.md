@@ -10,7 +10,7 @@ Times:
 | From | Message | Fields |
 |---|---|---|
 | client | `hello` | `client: "sycore"`, `app` (version string) |
-| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports) |
+| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`) |
 
 The device sends its `hello` and a `transport` on connect, without waiting for the client's.
 
@@ -18,6 +18,9 @@ The device sends its `hello` and a `transport` on connect, without waiting for t
 `transport`: `playing` (bool), `beat`, `tempo` (BPM), `num`, `den` (time signature).
 Sent on every change of playing / tempo / signature, and every 50 ms while connected. The client interpolates the beat between reports: `beat + (now − arrival) × tempo / 60000` while playing.
 `at` (bridge 1.3.4+): the device's clock (ms) when the report was made. With the offset between the two clocks (from the `pong`'s `nt`, on the ping with the shortest round trip), the client knows the report's age and corrects it — a report read late (the page busy for hundreds of ms, the reports queued) is not taken for a jump in Live's position.
+
+## Play / Stop (client → device, 1.5+)
+`play`: `on` (bool) — Live's transport started (`true`) or stopped (`false`): the device sets `live_set is_playing` ([live.object] in its patch). Sent by SY.CORE's Play button (Rig Controls, Performance) when the clock is Live's. The device's next `transport` reports the change.
 
 ## MIDI (client → device)
 `midi`: `data` (2–3 raw bytes of one channel message: note on/off, CC, pitch bend, program change, aftertouch), `beat` (when to play it; omitted = now).
