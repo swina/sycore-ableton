@@ -379,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 10,
+          "numoutlets": 11,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -395,10 +396,10 @@
           "patching_rect": [
             30,
             300,
-            387,
+            429,
             22
           ],
-          "text": "route midi3 midi2 clear info stats state rig map play"
+          "text": "route midi3 midi2 clear info stats state rig map play tempo"
         }
       },
       {
@@ -435,6 +436,24 @@
             22
           ],
           "text": "live.object"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-tset",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1440,
+            300,
+            135,
+            22
+          ],
+          "text": "prepend set tempo"
         }
       },
       {
@@ -2103,6 +2122,30 @@
           "destination": [
             "obj-lobj",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            9
+          ],
+          "destination": [
+            "obj-tset",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-tset",
+            0
+          ],
+          "destination": [
+            "obj-lobj",
+            0
           ]
         }
       },

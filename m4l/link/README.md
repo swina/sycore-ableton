@@ -15,6 +15,9 @@ Come lo spike (`../spike/README.md`), con questa cartella e questi nomi: Max MID
 
 Lo spike e questo device usano la stessa porta: tienine attivo uno solo.
 
+## Aggiornare il bridge
+Sul computer con Live: copia `sycore-link.js` e `sycore-link.amxd` nuovi sopra i vecchi in `Documents\sycore-link` (non `node_modules`: il Node di Max lo tiene bloccato), poi elimina il device dalla traccia e trascinalo di nuovo, e ricarica SY.CORE. Versioni: **1.5** Play / Stop di Live da SY.CORE (`play`), **1.6** tempo di Live da SY.CORE (`tempo`: TAP, − / +, manopola del Rig) — `[prepend set is_playing]` / `[prepend set tempo]` → `[live.object]` su `live_set` nella patch.
+
 ## Device pronto
 `node make-patch.mjs && node make-amxd.mjs` → `sycore-link.amxd`: un Max MIDI Effect già fatto, da trascinare su una traccia MIDI di Live (niente editor). Lo script va tenuto in `C:/Users/swina/Documents/sycore-link/` (percorso completo nella patch).
 

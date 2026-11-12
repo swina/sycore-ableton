@@ -172,10 +172,12 @@ const bridge = build([
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
   // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
   ['node', `node.script ${LINK_DIR}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
-  ['route', 'route midi3 midi2 clear info stats state rig map play', 1, 10, 30, 300],
+  ['route', 'route midi3 midi2 clear info stats state rig map play tempo', 1, 11, 30, 300],
   // Play / Stop from SY.CORE (bridge 1.5: 'transport'): Live's is_playing set on live_set
   ['pset', 'prepend set is_playing', 1, 1, 1280, 300],
   ['lobj', 'live.object', 2, 1, 1280, 330],
+  // Tempo from SY.CORE (bridge 1.6: 'tempo'): live_set tempo
+  ['tset', 'prepend set tempo', 1, 1, 1440, 300],
   // SY.CORE Rig devices: the Rig state to them, their clicks to SY.CORE
   ['rigs', `s ${RIG_STATE}`, 1, 0, 1000, 300],
   ['rigr', `r ${RIG_PRESS}`, 1, 1, 1000, 220],
@@ -242,6 +244,7 @@ const bridge = build([
   ['route', 6, 'rigs', 0], ['rigr', 0, 'node', 0],
   ['route', 7, 'maps', 0], ['mapr', 0, 'node', 0],
   ['route', 8, 'pset', 0], ['pset', 0, 'lobj', 0], ['lp', 0, 'lobj', 1],
+  ['route', 9, 'tset', 0], ['tset', 0, 'lobj', 0],
   ['node', 0, 'route', 0],
   // [zl.slice] sends the beat (right) before the bytes (left): the delay and the gate's way are set first.
   ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'sl3', 0],

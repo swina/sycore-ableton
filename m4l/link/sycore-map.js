@@ -76,6 +76,7 @@ function start() {
   setObs.property = 'tracks';
   for (var s = 0; s < SLOTS; s++) obs.push(null);
   toBridge('mapready');
+  pollTask.repeat();
   readTracks();
   var sel = ids(view.get('selected_track'))[0];
   if (sel) safeTarget(sel);
@@ -236,6 +237,7 @@ function goTarget(trackId) {
   foundCache[trackId] = { key: key, found: found };
   var tname = clean(get(trackId, 'name'));
   if (!found) {                                   // keep the last instrument (this device's own track…)
+    watchDevices(trackId);                        // an instrument added on it later: taken then
     T.note = tname + ': no instrument';
     post('sycore-map: ' + tname + ': no instrument' + (T.devId ? ' — still on ' + T.track + ' > ' + T.device : '') + '\n');
     sendView();
@@ -261,6 +263,7 @@ function goTarget(trackId) {
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
     rack: found.rack, rackId: found.macros ? found.rackId : 0, mode: mode, nMacros: nMacros, slots: slots, ms: 0, note: '' };
   watchVariations(T.rackId);
+  watchDevices(trackId);
   for (var k = 0; k < SLOTS; k++) watch(k, slots[k]);
   T.ms = Date.now() - t0;
   var n = 0; for (var q = 0; q < SLOTS; q++) if (slots[q]) n++;
@@ -270,6 +273,46 @@ function goTarget(trackId) {
   sendView();
 }
 function trackIndex(id) { for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return i; return -1; }
+
+// The target track's devices: its instrument replaced, added or removed (same track, no new selection)
+// → the target read again. Only the instrument counts: MIDI effects before it (an Arpeggiator…) and
+// audio effects after it are skipped, as in findInstrument; a change of those alone does nothing.
+// Read out of the notification (it can't touch the set), after the change settles.
+var devObs = null, devObsTrack = 0;
+function instrumentKey(trackId) {
+  var f = findInstrument(ids(get(trackId, 'devices')), 0);
+  return f ? f.rackId + ':' + f.id : '';
+}
+/** The instrument on the watched track changed (not its MIDI / audio effects): the target read again. */
+function checkInstrument(why) {
+  if (!devObsTrack) return;
+  var o = new LiveAPI(null, 'id ' + devObsTrack);
+  if (!(+o.id > 0)) { devObsTrack = 0; return; }          // the track was deleted
+  var key = instrumentKey(devObsTrack);
+  var now = T.trackId === devObsTrack ? T.rackId + ':' + T.devId : '';
+  if (key === now) return;
+  post('sycore-map: track ' + clean(get(devObsTrack, 'name')) + ': instrument changed (' + why + ')\n');
+  delete foundCache[devObsTrack];
+  T.trackId = 0;
+  safeTarget(devObsTrack);
+}
+var devTask = new Task(function () { try { checkInstrument('devices'); } catch (e) { post('sycore-map: devices check failed: ' + e + '\n'); } }, this);
+// The same check every 500 ms: Live's notification of the track's devices didn't come in every case
+// (an Instrument Rack replaced on the track went unseen). A few Live API reads per check.
+var pollTask = new Task(function () { try { checkInstrument('check'); } catch (e) {} }, this);
+pollTask.interval = 500;
+function onDevices(args) {
+  if (!args || args[0] !== 'devices') return;
+  devTask.cancel();
+  devTask.schedule(100);
+}
+function watchDevices(trackId) {
+  if (devObsTrack === trackId) return;
+  if (devObs) { try { devObs.property = ''; } catch (e) {} devObs = null; }
+  devObsTrack = trackId;
+  devObs = new LiveAPI(onDevices, 'id ' + trackId);
+  devObs.property = 'devices';
+}
 /** The target again (new tables, or SY.CORE picked a track). */
 function retarget() { if (T.trackId) { var id = T.trackId; T.trackId = 0; safeTarget(id); } }
 
@@ -441,3 +484,6 @@ function sendParams() {
   toBridge('mapparams', JSON.stringify({ cls: tableKey(info), name: info.name, params: out }));
 }
 
+
+// The device removed / the script freed: no more checks.
+function notifydeleted() { try { pollTask.cancel(); devTask.cancel(); } catch (e) {} }

@@ -10,7 +10,7 @@ Times:
 | From | Message | Fields |
 |---|---|---|
 | client | `hello` | `client: "sycore"`, `app` (version string) |
-| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`) |
+| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`), `tempo` (1.6+: true when it takes `tempo`) |
 
 The device sends its `hello` and a `transport` on connect, without waiting for the client's.
 
@@ -21,6 +21,9 @@ Sent on every change of playing / tempo / signature, and every 50 ms while conne
 
 ## Play / Stop (client → device, 1.5+)
 `play`: `on` (bool) — Live's transport started (`true`) or stopped (`false`): the device sets `live_set is_playing` ([live.object] in its patch). Sent by SY.CORE's Play button (Rig Controls, Performance) when the clock is Live's. The device's next `transport` reports the change.
+
+## Tempo (client → device, 1.6+)
+`tempo`: `bpm` (20–999) — sets Live's tempo (`live_set tempo`, the same [live.object]). Sent by SY.CORE's TAP, tempo − / + and tempo knob (Rig Controls) when the clock is Live's. The device's next `transport` reports the new tempo.
 
 ## MIDI (client → device)
 `midi`: `data` (2–3 raw bytes of one channel message: note on/off, CC, pitch bend, program change, aftertouch), `beat` (when to play it; omitted = now).
