@@ -16,7 +16,10 @@ const RIG_PRESS = 'sycore_rig_in';
 // The SY.CORE Map device (P12) ↔ the bridge: the tables / slot values out, its info and values in.
 const MAP_OUT = 'sycore_map';
 const MAP_IN = 'sycore_map_in';
-const LINK_DIR = process.env.SYCORE_LINK_DIR || 'C:/Users/swina/Documents/sycore-link';
+// Scripts by file name only: Max finds them next to the .amxd (the distributed folder). SYCORE_LINK_DIR
+// pins a folder instead (a full path, as before), for a dev setup that keeps the scripts elsewhere.
+const LINK_DIR = process.env.SYCORE_LINK_DIR || '';
+const at = f => (LINK_DIR ? `${LINK_DIR}/${f}` : f);
 
 // SY.CORE's look (src/assets/main.css in sycore-refactor): dark panels, brand green, cyan accent,
 // bold uppercase titles, small muted uppercase labels. Max colors: [r, g, b, a] in 0–1.
@@ -170,8 +173,7 @@ const bridge = build([
   ['tpre', 'prepend track', 1, 1, 600, 220],
   ['start', 'script start', 2, 1, 250, 220, { kind: 'message' }],
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
-  // Full path: the device works wherever Live saves the .amxd (SYCORE_LINK_DIR overrides it).
-  ['node', `node.script ${LINK_DIR}/sycore-link.js @autostart 1`, 1, 2, 30, 260],
+  ['node', `node.script ${at('sycore-link.js')} @autostart 1`, 1, 2, 30, 260],
   ['route', 'route midi3 midi2 clear info stats state rig map play tempo', 1, 11, 30, 300],
   // Play / Stop from SY.CORE (bridge 1.5: 'transport'): Live's is_playing set on live_set
   ['pset', 'prepend set is_playing', 1, 1, 1280, 300],
@@ -295,7 +297,7 @@ const receiver = build([
 // the bridge, each click back to SY.CORE as a rig action. OPEN shows the same grid larger, in a
 // floating window (a subpatcher opened with [pcontrol]).
 const RIG_W = 380;
-const jsui = (p, extra = {}) => ({ kind: 'jsui', p, filename: `${LINK_DIR}/sycore-rig-grid.js`, border: 0, ...extra });
+const jsui = (p, extra = {}) => ({ kind: 'jsui', p, filename: at('sycore-rig-grid.js'), border: 0, ...extra });
 const WIN = [820, 390]; // the reference layout's proportions (1451 × 693: with the GEN column)
 // OPEN reaches the window twice: [pcontrol] open on its box, and "front" to its own [thispatcher]
 // through a device-local send (---: this device only) — either one opens it and brings it forward.
@@ -352,8 +354,8 @@ const MAP_W = 470;
 const map = build([
   ['dev', 'live.thisdevice', 1, 3, 30, 20],
   ['mr', `r ${MAP_OUT}`, 1, 1, 200, 20],
-  ['logic', `js ${LINK_DIR}/sycore-map.js`, 1, 2, 30, 90],
-  ['view', '', 1, 1, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: `${LINK_DIR}/sycore-map-view.js`, border: 0, patching_rect: [500, 120, 440, 134] }],
+  ['logic', `js ${at('sycore-map.js')}`, 1, 2, 30, 90],
+  ['view', '', 1, 1, 30, 120, { kind: 'jsui', p: [8, 28, MAP_W - 16, 134], filename: at('sycore-map-view.js'), border: 0, patching_rect: [500, 120, 440, 134] }],
   // to the bridge; "followtoggle" sets the Follow toggle (without sending it back)
   ['rf', 'route followtoggle', 1, 2, 500, 270],
   ['fset', 'prepend set', 1, 1, 500, 300],

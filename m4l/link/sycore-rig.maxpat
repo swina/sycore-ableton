@@ -39,7 +39,7 @@
       {
         "box": {
           "border": 0,
-          "filename": "C:/Users/swina/Documents/sycore-link/sycore-rig-grid.js",
+          "filename": "sycore-rig-grid.js",
           "id": "obj-grid",
           "maxclass": "jsui",
           "numinlets": 1,
@@ -339,7 +339,7 @@
               {
                 "box": {
                   "border": 0,
-                  "filename": "C:/Users/swina/Documents/sycore-link/sycore-rig-grid.js",
+                  "filename": "sycore-rig-grid.js",
                   "id": "obj-grid",
                   "maxclass": "jsui",
                   "numinlets": 1,
@@ -598,7 +598,7 @@
       {
         "box": {
           "border": 0,
-          "filename": "C:/Users/swina/Documents/sycore-link/sycore-rig-grid.js",
+          "filename": "sycore-rig-grid.js",
           "id": "obj-chd",
           "maxclass": "jsui",
           "numinlets": 1,

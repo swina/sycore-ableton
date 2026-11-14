@@ -368,10 +368,10 @@
           "patching_rect": [
             30,
             260,
-            548,
+            289,
             22
           ],
-          "text": "node.script C:/Users/swina/Documents/sycore-link/sycore-link.js @autostart 1"
+          "text": "node.script sycore-link.js @autostart 1"
         }
       },
       {

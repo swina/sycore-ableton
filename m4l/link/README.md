@@ -19,7 +19,14 @@ Lo spike e questo device usano la stessa porta: tienine attivo uno solo.
 Sul computer con Live: copia `sycore-link.js` e `sycore-link.amxd` nuovi sopra i vecchi in `Documents\sycore-link` (non `node_modules`: il Node di Max lo tiene bloccato), poi elimina il device dalla traccia e trascinalo di nuovo, e ricarica SY.CORE. Versioni: **1.5** Play / Stop di Live da SY.CORE (`play`), **1.6** tempo di Live da SY.CORE (`tempo`: TAP, − / +, manopola del Rig) — `[prepend set is_playing]` / `[prepend set tempo]` → `[live.object]` su `live_set` nella patch.
 
 ## Device pronto
-`node make-patch.mjs && node make-amxd.mjs` → `sycore-link.amxd`: un Max MIDI Effect già fatto, da trascinare su una traccia MIDI di Live (niente editor). Lo script va tenuto in `C:/Users/swina/Documents/sycore-link/` (percorso completo nella patch).
+`node make-patch.mjs && node make-amxd.mjs` → i 4 `.amxd`: Max MIDI Effect già fatti, da trascinare su una traccia MIDI di Live (niente editor). Le patch caricano gli script **per nome** (`sycore-link.js`, `sycore-map.js`, `sycore-map-view.js`, `sycore-rig-grid.js`): Max li trova nella cartella del `.amxd`, quindi device, script e `node_modules` stanno insieme. `SYCORE_LINK_DIR=C:/percorso` rimette un percorso completo (setup di sviluppo).
+
+## Pacchetto per la distribuzione
+`npm run package` → `dist/SYCORE-Live-Devices-<versione>/` e il suo `.zip`: i 4 device, gli script, `node_modules` di produzione (`npm ci --omit=dev`: `ws`, `@julusian/midi` con i binari per Windows e macOS), `README.md` per l'utente (da `README-USER.md`), `LICENSE` (GPL-3.0). La versione è quella di `package.json` e deve coincidere con `VERSION` in `sycore-link.js` (lo script si ferma se no); si ferma anche se una patch carica uno script per percorso completo.
+
+**Live Pack (.alp)**, dalla cartella: in Live crea un set vuoto, salvalo come progetto *SY.CORE Devices*, copia i file della cartella nel progetto, poi *File › Manage Files › Manage Project › Create Live Pack*. Il `.alp` va allegato alla stessa release.
+
+**Release**: `gh release create link-v<versione> dist/*.zip dist/*.alp -R swina/sycore-ableton`.
 
 ## La griglia del Rig in Live: SY.CORE Rig
 `sycore-rig.amxd` (MIDI Effect, su una traccia qualsiasi, anche più di uno): la slot grid del Rig Controller di SY.CORE — righe Chord, Drum, Seq, Bass, Arp × slot A–H, M / S / GEN per riga (G nel device), Sections 1–8 e FILL (il Fill del Drum Machine: lampeggia mentre suona) — con gli stessi colori (pieno ambra, in play verde, in attesa/armato lampeggiante, mute rosso). Un clic fa quello che fa il pad nel pannello (Trigger sync, attesa con Live fermo, Sections). In alto l'**accordo in corso** con la sua durata e il **prossimo** (`NOW Cmaj7 1/1  NEXT Am7 1/2`) con una barra di avanzamento: verde, arancione dall'80 % dell'accordo, una tacca per battuta. **OPEN** apre la finestra flottante **SY.CORE RIG**: titolo, NOW / NEXT allineati ai pad con la barra sotto, etichette a sinistra, pad A–H (pieni: ambra scuro con lettere ambra) e M / S / GEN staccati a destra, Sections 1–8 e FILL in fondo. Il Solo: suona solo la riga in solo, le etichette delle altre si attenuano.

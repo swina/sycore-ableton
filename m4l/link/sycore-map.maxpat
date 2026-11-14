@@ -69,16 +69,16 @@
           "patching_rect": [
             30,
             90,
-            387,
+            128,
             22
           ],
-          "text": "js C:/Users/swina/Documents/sycore-link/sycore-map.js"
+          "text": "js sycore-map.js"
         }
       },
       {
         "box": {
           "border": 0,
-          "filename": "C:/Users/swina/Documents/sycore-link/sycore-map-view.js",
+          "filename": "sycore-map-view.js",
           "id": "obj-view",
           "maxclass": "jsui",
           "numinlets": 1,

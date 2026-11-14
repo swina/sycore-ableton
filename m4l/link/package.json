@@ -1,12 +1,14 @@
 {
   "name": "sycore-link",
-  "version": "1.0.0",
+  "version": "1.6.0",
   "private": true,
+  "license": "GPL-3.0-only",
   "description": "SY.CORE Link: WebSocket bridge between SY.CORE (browser) and Ableton Live (Max for Live, Node for Max). Protocol v1: docs/link-protocol-v1.md",
   "main": "sycore-link.js",
   "scripts": {
     "test": "node --test",
-    "sim": "node sycore-link.js --sim"
+    "sim": "node sycore-link.js --sim",
+    "package": "node package.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0",
