@@ -9,8 +9,14 @@
 //        "fill <0|1>"                                                (the Drum Machine's Fill is on)
 //        "chord <now> <dur> <next> <dur> <ms> <bars> <seq> <elapsed>"  ('-' = none; ms = the chord's
 //                                                                      length, seq = one per step)
+//        "lpc <80 colour codes>" / "lpl <80 labels>"   (bridge 1.7: the Rig's Launchpad layout as in SY.CORE —
+//                                                        top 8, pads 8×8 row by row, side 8; '_' = space, '-' = none)
 //   out: "rigpress <rig action>"  — rig_slot_<app>_<a–h>, rig_mute_<app>, rig_solo_<app>, rig_gen_<app>,
-//        rig_section_<1–8>, rig_fill
+//        rig_section_<1–8>, rig_fill; with the Launchpad layout: lp_pad_<0–63>_<down|up>, lp_side_<0–7>_…,
+//        lp_top_<0–7>_… (press and release, as on the Launchpad: Repeat and the slots' hold need the release)
+//
+// With the Launchpad layout received, the device draws it instead of its own grid: the same pads,
+// labels and LED colours as the Rig Controller's Launchpad view in SY.CORE.
 //
 // A box less than 40 px tall shows the chord line only (the device's header); a box taller than
 // 200 px (the floating window) shows the SY.CORE RIG title, the chord line and its progress bar
@@ -62,6 +68,25 @@ function row(i, filled, playing, queued, muted, solo, gen) {
   // a new Generate in SY.CORE (from anywhere): flash GEN — not on the first state received
   if (rows[i].gen >= 0 && gen !== rows[i].gen) flashGen(i);
   rows[i] = { filled: filled | 0, playing: playing | 0, queued: queued | 0, muted: muted | 0, solo: solo | 0, gen: gen };
+  mgraphics.redraw();
+}
+// The Launchpad layout (bridge 1.7): 80 cells — 0–7 top, 8–71 pads, 72–79 side.
+var lpColors = null, lpLabels = [];
+for (var li = 0; li < 80; li++) lpLabels.push('');
+var lpDown = -1; // the cell pressed (its release goes out on mouse up)
+function lpc() {
+  var a = arrayfromargs(arguments);
+  if (a.length < 80) return;
+  lpColors = [];
+  for (var i = 0; i < 80; i++) lpColors.push(a[i] | 0);
+  mgraphics.redraw();
+}
+function lpl() {
+  var a = arrayfromargs(arguments);
+  for (var i = 0; i < 80 && i < a.length; i++) {
+    var t = String(a[i]);
+    lpLabels[i] = t === '-' ? '' : t.replace(/_/g, ' ');
+  }
   mgraphics.redraw();
 }
 function sec(s, q) { section = s | 0; queuedSection = q | 0; mgraphics.redraw(); }
@@ -176,6 +201,7 @@ function paint() {
     progressBar(4, h0 - bh - 1, w0 - 8, bh);
     return;
   }
+  if (lpColors) { paintLaunchpad(w0, h0); return; }
   var L = layout();
   var fs = L.win ? 24 * L.s : Math.max(8, Math.min(14, L.rowH * 0.42));
   var fl = L.win ? 20 * L.s : fs * 0.85;    // row labels, M / S
@@ -238,9 +264,113 @@ function paint() {
   }
 }
 
+// ── The Launchpad layout ─────────────────────────────────────────────────
+// LED colours (SY.CORE's LED_CLASS): off, amber, amberFlash, green, red, redDim, redFlash → fill, ink.
+var LP_RED = [0.86, 0.15, 0.15, 1], LP_RED_DIM = [0.27, 0.06, 0.06, 1], LP_AMBER = [0.96, 0.62, 0.04, 1];
+function lpLook(code) {
+  switch (code) {
+    case 1: return [LP_AMBER, [0, 0, 0, 1]];
+    case 2: return [blink ? [0.98, 0.75, 0.2, 1] : C.amberHot, [0, 0, 0, 1]];
+    case 3: return [C.green, [0, 0, 0, 1]];
+    case 4: return [LP_RED, [1, 1, 1, 1]];
+    case 5: return [LP_RED_DIM, [0.95, 0.55, 0.55, 0.85]];
+    case 6: return [blink ? LP_RED : LP_RED_DIM, [1, 1, 1, 1]];
+    default: return [C.pad, C.dim];
+  }
+}
+/** The grid's geometry in the box: 9 × 9 cells (top row + 8 rows; 8 columns + the side column),
+ *  under a header in the floating window (title, NOW / NEXT, the progress bar). */
+function lpLayout(w, h) {
+  var head = h > 200 ? Math.round(h * 0.16) : 0;
+  var gap = Math.max(2, Math.round(Math.min(w, h - head) / 110));
+  var cw = (w - gap * 10) / 9, ch = (h - head - gap * 10) / 9;
+  return { head: head, gap: gap, cw: cw, ch: ch, win: h > 200 };
+}
+/** Cell i (0–79) → [x, y, w, h, round]: top = row 0 cols 0–7, pads = rows 1–8, side = col 8. */
+function lpCell(G, i) {
+  var col, row;
+  if (i < 8) { row = 0; col = i; }
+  else if (i < 72) { row = 1 + Math.floor((i - 8) / 8); col = (i - 8) % 8; }
+  else { row = 1 + (i - 72); col = 8; }
+  var x = G.gap + col * (G.cw + G.gap), y = G.head + G.gap + row * (G.ch + G.gap);
+  return [x, y, G.cw, G.ch, i < 8 || i >= 72];
+}
+function fitText(t, x, y, w, h, col, size) {
+  if (!t) return;
+  mgraphics.select_font_face('Arial Bold');
+  var fsz = size;
+  mgraphics.set_font_size(fsz);
+  var m = mgraphics.text_measure(t);
+  if (m[0] > w - 3 && m[0] > 0) { fsz = Math.max(6, fsz * (w - 3) / m[0]); mgraphics.set_font_size(fsz); m = mgraphics.text_measure(t); }
+  mgraphics.set_source_rgba(col);
+  mgraphics.move_to(x + (w - m[0]) / 2, y + (h + fsz * 0.72) / 2);
+  mgraphics.show_text(t);
+}
+function paintLaunchpad(w, h) {
+  var G = lpLayout(w, h);
+  mgraphics.set_source_rgba(C.bg);
+  mgraphics.rectangle(0, 0, w, h);
+  mgraphics.fill();
+  if (G.win) {
+    var s = G.head / 110, tx = G.gap, th = G.head * 0.36, ts = Math.max(12, 30 * s);
+    tx += textAt('SY.', tx, 0, th, C.title, ts, 'Consolas');
+    tx += textAt('CORE', tx, 0, th, C.titleCore, ts, 'Consolas') + ts * 0.3;
+    textAt('RIG', tx, 0, th, C.titleRig, ts, 'Consolas');
+    chordLine(G.gap, G.head * 0.38, G.head * 0.4, Math.max(11, 26 * s));
+    progressBar(G.gap, G.head * 0.82, w - G.gap * 2, Math.max(3, G.head * 0.06));
+  }
+  var size = Math.max(7, Math.min(G.ch * 0.36, G.cw * 0.24, 18));
+  for (var i = 0; i < 80; i++) {
+    var c = lpCell(G, i), look = lpLook(lpColors[i]);
+    var rad = c[4] ? Math.min(c[2], c[3]) / 2 : Math.min(6, c[3] / 4);
+    mgraphics.set_source_rgba(look[0]);
+    mgraphics.rectangle_rounded(c[0], c[1], c[2], c[3], rad * 2, rad * 2);
+    mgraphics.fill();
+    mgraphics.set_source_rgba(lpDown === i ? [1, 1, 1, 0.8] : C.border);
+    mgraphics.set_line_width(1);
+    mgraphics.rectangle_rounded(c[0] + 0.5, c[1] + 0.5, c[2] - 1, c[3] - 1, rad * 2, rad * 2);
+    mgraphics.stroke();
+    if (G.ch >= 11) fitText(lpLabels[i], c[0], c[1], c[2], c[3], look[1], size);
+  }
+  if (!isActive) {
+    fillRect(0, 0, w, h, [0.04, 0.04, 0.04, 0.82]);
+    text('Open the Rig Controller in SY.CORE', 0, 0, w, h, C.muted, Math.max(9, size));
+  }
+}
+function lpHit(x, y) {
+  var w = box.rect[2] - box.rect[0], h = box.rect[3] - box.rect[1], G = lpLayout(w, h);
+  for (var i = 0; i < 80; i++) {
+    var c = lpCell(G, i);
+    if (x >= c[0] && x <= c[0] + c[2] && y >= c[1] && y <= c[1] + c[3]) return i;
+  }
+  return -1;
+}
+function lpName(i, down) {
+  var kind = i < 8 ? 'top_' + i : i < 72 ? 'pad_' + (i - 8) : 'side_' + (i - 72);
+  return 'lp_' + kind + (down ? '_down' : '_up');
+}
+lpCell.local = 1; lpLayout.local = 1; lpLook.local = 1; fitText.local = 1; paintLaunchpad.local = 1; lpHit.local = 1; lpName.local = 1;
+
+/** Mouse up after a press on the Launchpad layout: its release (Repeat, a held slot). */
+function ondrag(x, y, but) {
+  if (but || lpDown < 0) return;
+  outlet(0, 'rigpress', lpName(lpDown, 0));
+  lpDown = -1;
+  mgraphics.redraw();
+}
+ondrag.local = 1;
+
 /** A click: the rig action under it, to SY.CORE (through the bridge). */
 function onclick(x, y) {
   if (!isActive || box.rect[3] - box.rect[1] < 40) return;
+  if (lpColors) {
+    var hit = lpHit(x, y);
+    if (hit < 0) return;
+    lpDown = hit;
+    outlet(0, 'rigpress', lpName(hit, 1));
+    mgraphics.redraw();
+    return;
+  }
   var L = layout();
   var r = Math.floor((y - L.y0) / L.stepY);
   if (r < 0 || r > 5) return;

@@ -277,7 +277,27 @@ function parseRig(m) {
     const r = m.rows[i] || {};
     return { filled: int(r.filled, 0, 255, 0), playing: int(r.playing, -1, 7, -1), queued: int(r.queued, -1, 7, -1), muted: r.muted ? 1 : 0, solo: r.solo ? 1 : 0, gen: int(r.gen, 0, 2147483647, 0) };
   });
-  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1), fill: m.fill ? 1 : 0, chord: rigChord(m.chord) };
+  return { rows, section: int(m.section, -1, 7, -1), queuedSection: int(m.queuedSection, -1, 7, -1), fill: m.fill ? 1 : 0, chord: rigChord(m.chord), lp: rigLaunchpad(m.lp) };
+}
+/** The Launchpad layout's LED colours, coded for Max (SY.CORE's rig-link-launchpad.ts). */
+const RIG_LP_COLORS = ['off', 'amber', 'amberFlash', 'green', 'red', 'redDim', 'redFlash'];
+/** A label as one Max symbol: spaces → '_' (the device shows them back as spaces), '-' for none. */
+const lpLabel = v => (String(v == null ? '' : v).trim().replace(/\s+/g, '_').slice(0, 10) || '-');
+/**
+ * The Rig's Launchpad layout (top 8, pads 64 row by row, side 8) → { colors: 80 codes, labels: 80
+ * symbols }, in that order; null when SY.CORE sent none (before 1.7: the devices draw the old grid).
+ */
+function rigLaunchpad(lp) {
+  if (!lp || typeof lp !== 'object') return null;
+  const cells = [];
+  for (const [k, n] of [['top', 8], ['pads', 64], ['side', 8]]) {
+    const arr = Array.isArray(lp[k]) ? lp[k] : [];
+    for (let i = 0; i < n; i++) cells.push(arr[i] || {});
+  }
+  return {
+    colors: cells.map(c => Math.max(0, RIG_LP_COLORS.indexOf(c.color))),
+    labels: cells.map(c => lpLabel(c.label)),
+  };
 }
 /** The chord sounding and the next one, as Max symbols: no spaces, '-' for none (an empty symbol
  *  would be lost in a Max message), at most 12 characters. */
@@ -290,7 +310,9 @@ function rigChord(c) {
   };
 }
 /** A rig action a Rig device may send (rig-actions.ts in SY.CORE): slots, mute, solo, GEN, sections, Fill. */
-const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo|gen)_(chord|drum|seq|bass|arp)|section_[1-8]|fill)$/.test(String(n));
+const rigName = n => /^rig_(slot_(chord|drum|seq|bass|arp)_[a-h]|(mute|solo|gen)_(chord|drum|seq|bass|arp)|section_[1-8]|fill)$/.test(String(n))
+  // the Launchpad layout (1.7): a pad / side / top button pressed or released
+  || /^lp_(pad_([0-9]|[1-5][0-9]|6[0-3])|(side|top)_[0-7])_(down|up)$/.test(String(n));
 
 
 // ── SY.CORE Map (P12): Live's instruments driven by table ──────────────────

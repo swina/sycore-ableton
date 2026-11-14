@@ -16,6 +16,7 @@
  *                "rig row <i> <filled mask> <playing> <queued> <muted> <solo> <gen>" → [s sycore_rig]
  *                "rig sec <section> <queued section>" / "rig active <0|1>"      (SY.CORE Rig devices)
  *                "rig fill <0|1>"                                                (the Drum Machine's Fill on)
+ *                "rig lpc <80 colour codes>" / "rig lpl <80 labels>"   (1.7: the Rig's Launchpad layout — top 8, pads 64, side 8)
  *                "rig chord <now> <duration> <next> <duration> <ms> <bars> <seq> <elapsed ms>"  ('-' = none)
  *                "map tables <json>" / "map value <slot> <0–1>" / "map target <follow|track>" / "map params"
  *                "map variation <index|next|prev|store|delete>" / "map randomize"
@@ -26,7 +27,7 @@ const { WebSocketServer } = require('ws');
 const { TimedQueue, PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.6.0'; // 1.6.0: tempo from SY.CORE ('tempo', hello `tempo`) · 1.5.0: Play / Stop Live from SY.CORE ('play', hello `play`) · 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.7.0'; // 1.7.0: the Rig's Launchpad layout to the SY.CORE Rig devices (rig lpc / lpl, lp_* presses) · 1.6.0: tempo from SY.CORE ('tempo', hello `tempo`) · 1.5.0: Play / Stop Live from SY.CORE ('play', hello `play`) · 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -79,6 +80,8 @@ function sendRig() {
   rigState.rows.forEach((r, i) => toMax('rig', 'row', i, r.filled, r.playing, r.queued, r.muted, r.solo, r.gen));
   toMax('rig', 'sec', rigState.section, rigState.queuedSection);
   toMax('rig', 'fill', rigState.fill);
+  // the Launchpad layout as in SY.CORE (1.7): 80 colour codes, then 80 labels (top, pads, side)
+  if (rigState.lp) { toMax('rig', 'lpc', ...rigState.lp.colors); toMax('rig', 'lpl', ...rigState.lp.labels); }
   const c = rigState.chord;
   // + its length (ms), bars, the step counter and the ms already gone (a device added mid-chord)
   toMax('rig', 'chord', c ? c.now : '-', c ? c.dur : '-', c ? c.next : '-', c ? c.nextDur : '-',

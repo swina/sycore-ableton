@@ -1,6 +1,6 @@
 {
   "name": "sycore-link",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "SY.CORE Link: WebSocket bridge between SY.CORE (browser) and Ableton Live (Max for Live, Node for Max). Protocol v1: docs/link-protocol-v1.md",

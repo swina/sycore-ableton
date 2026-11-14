@@ -167,6 +167,25 @@ test('rig: SY.CORE\'s Rig state for the Rig devices, clamped; active false = non
   assert.equal(parseRig({ type: 'rig', rows: [{}] }).rows[0].gen, 0);
 });
 
+test('rig: the Launchpad layout (1.7) — 80 colour codes and labels, presses accepted', () => {
+  const { parseRig, rigName } = require('./link-core');
+  assert.equal(parseRig({ type: 'rig', rows: [] }).lp, null);
+  const lp = parseRig({ type: 'rig', rows: [], lp: {
+    top: [{ label: 'Beat', color: 'green' }],
+    pads: [{ label: 'Drum A', color: 'amber' }, { label: '', color: 'redFlash' }],
+    side: Array.from({ length: 8 }, (_, i) => ({ label: i === 7 ? 'S·CAP' : 'GEN', color: i === 7 ? 'red' : 'purple' })),
+  } }).lp;
+  assert.equal(lp.colors.length, 80);
+  assert.equal(lp.labels.length, 80);
+  assert.deepEqual(lp.colors.slice(0, 2), [3, 0]);          // top: green, then none
+  assert.deepEqual(lp.colors.slice(8, 10), [1, 6]);         // pads: amber, redFlash
+  assert.deepEqual(lp.labels.slice(8, 10), ['Drum_A', '-']);
+  assert.equal(lp.colors[72], 0);                          // side: unknown colour → off
+  assert.deepEqual([lp.colors[79], lp.labels[79]], [4, 'S·CAP']);
+  assert.ok(rigName('lp_pad_0_down') && rigName('lp_pad_63_up') && rigName('lp_side_7_down') && rigName('lp_top_0_up'));
+  assert.ok(!rigName('lp_pad_64_down') && !rigName('lp_side_8_up') && !rigName('lp_top_1_hold'));
+});
+
 test('map: tables by class_name, slots clamped to 16, bad classes and slots dropped', () => {
   const { parseMapTables } = require('./link-core');
   assert.equal(parseMapTables({ type: 'map' }), undefined);
