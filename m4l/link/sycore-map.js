@@ -297,9 +297,23 @@ function checkInstrument(why) {
   safeTarget(devObsTrack);
 }
 var devTask = new Task(function () { try { checkInstrument('devices'); } catch (e) { post('sycore-map: devices check failed: ' + e + '\n'); } }, this);
-// The same check every 500 ms: Live's notification of the track's devices didn't come in every case
-// (an Instrument Rack replaced on the track went unseen). A few Live API reads per check.
-var pollTask = new Task(function () { try { checkInstrument('check'); } catch (e) {} }, this);
+// Every 500 ms, as a backstop: Live's notification of the track's devices didn't come in every case
+// (an Instrument Rack replaced on the track went unseen). The poll creates NO LiveAPI object: it reads
+// the track's device list through the observer already on it (devObs) and runs the full check only when
+// that list changed. (It used to run checkInstrument each time — a new LiveAPI per property read, a
+// dozen per poll with a Rack: tens of thousands an hour, and Live hung after an hour or two idle.)
+var lastDevList = null;
+var pollTask = new Task(function () {
+  try {
+    if (!devObs || !devObsTrack) return;
+    if (!(+devObs.id > 0)) { checkInstrument('check'); return; }   // the track was deleted
+    var list = String(devObs.get('devices'));
+    if (list === lastDevList) return;
+    var first = lastDevList === null;
+    lastDevList = list;
+    if (!first) checkInstrument('check');
+  } catch (e) {}
+}, this);
 pollTask.interval = 500;
 function onDevices(args) {
   if (!args || args[0] !== 'devices') return;
@@ -312,6 +326,7 @@ function watchDevices(trackId) {
   devObsTrack = trackId;
   devObs = new LiveAPI(onDevices, 'id ' + trackId);
   devObs.property = 'devices';
+  lastDevList = null;   // the poll takes this track's list as it is now
 }
 /** The target again (new tables, or SY.CORE picked a track). */
 function retarget() { if (T.trackId) { var id = T.trackId; T.trackId = 0; safeTarget(id); } }
