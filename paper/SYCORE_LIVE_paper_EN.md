@@ -2,7 +2,7 @@
 
 *The generative part of your set, inside Ableton Live, while you play*
 
-November 4, 2026, updated November 16, 2026 · Devices: SY.CORE Live Devices 1.7.0 · Italian version: [SYCORE_LIVE_paper_IT.md](SYCORE_LIVE_paper_IT.md)
+November 4, 2026, updated November 16, 2026 · Devices: SY.CORE Live Devices 1.7.0 · Italian version: [SYCORE_LIVE_paper_IT.md](SYCORE_LIVE_paper_IT.md) · Online version: https://claude.ai/artifact/HW1Hr9GHfMYk7pxcBc78sc
 
 ## In short
 
