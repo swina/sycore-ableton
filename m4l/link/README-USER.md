@@ -17,6 +17,11 @@ Max for Live devices that connect [SY.CORE](https://sycoreapp.vercel.app) (in yo
 
 ## Install
 
+Two downloads, the same devices: the **zip** or the **Live Pack** (`.alp`).
+
+- **Live Pack**: double-click `SYCORE-Live-Devices-<version>.alp`. Live asks where to unpack it: it creates a folder (a Live project) with the devices in it. Add that folder to Live's browser (*Places › Add Folder…*), then go on from step 3.
+- **Zip**:
+
 1. **Unzip** the folder `SYCORE-Live-Devices-<version>` and keep its files together: the devices load the scripts and `node_modules` next to them.
 2. **Put it where Live can see it**, for example in your User Library:
    - Windows: `Documents\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\`

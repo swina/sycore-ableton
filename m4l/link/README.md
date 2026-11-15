@@ -24,7 +24,7 @@ Sul computer con Live: copia `sycore-link.js` e `sycore-link.amxd` nuovi sopra i
 ## Pacchetto per la distribuzione
 `npm run package` → `dist/SYCORE-Live-Devices-<versione>/` e il suo `.zip`: i 4 device, gli script, `node_modules` di produzione (`npm ci --omit=dev`: `ws`, `@julusian/midi` con i binari per Windows e macOS), `README.md` per l'utente (da `README-USER.md`), `LICENSE` (GPL-3.0). La versione è quella di `package.json` e deve coincidere con `VERSION` in `sycore-link.js` (lo script si ferma se no); si ferma anche se una patch carica uno script per percorso completo.
 
-**Live Pack (.alp)**, dalla cartella: in Live crea un set vuoto, salvalo come progetto *SY.CORE Devices*, copia i file della cartella nel progetto, poi *File › Manage Files › Manage Project › Create Live Pack*. Il `.alp` va allegato alla stessa release.
+**Live Pack (.alp)**, dalla cartella: in Live crea un set vuoto, salvalo come progetto *SY.CORE Devices*, copia i file della cartella nel progetto (tracce vuote: un device messo su una traccia può essere copiato da Live in una sottocartella senza i suoi script — niente *Collect All and Save*), poi *File › Manage Files › Manage Project › Create Live Pack*. Il `.alp` va allegato alla stessa release. Aperto, Live chiede dove scompattarlo (un pack fatto dall'utente non va sotto *Packs*): la cartella si aggiunge con *Places › Add Folder…*. Verificato 2026-11-15 su Windows: il bridge 1.7.0 parte dal Pack (Max trova gli script per nome).
 
 **Release**: `gh release create link-v<versione> dist/*.zip dist/*.alp -R swina/sycore-ableton`.
 
