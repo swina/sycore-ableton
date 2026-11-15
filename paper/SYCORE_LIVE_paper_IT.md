@@ -1,168 +1,150 @@
 # SY.CORE Live
 
-*Il cervello MIDI del tuo rig, accanto ad Ableton Live*
+*La parte generativa del tuo set, dentro Ableton Live, mentre suoni*
 
-4 novembre 2026, aggiornato il 5 novembre 2026 · Versione online: https://claude.ai/artifact/DNV5wTdE2hesCpcK2qNDno
+4 novembre 2026, aggiornato il 16 novembre 2026 · Device: SY.CORE Live Devices 1.7.0 · English version: [SYCORE_LIVE_paper_EN.md](SYCORE_LIVE_paper_EN.md)
 
 ## In breve
 
-SY.CORE Live trasforma SY.CORE nel centro di controllo MIDI di un rig costruito intorno ad Ableton Live. Live resta il DAW, per registrare, arrangiare e mixare. SY.CORE gestisce tutto il resto: routing, synth hardware e software, sequencer generativi, AI e sync.
+SY.CORE è un ambiente di performance che gira nel browser: una Drum Machine con linee di basso e fill, un Chord Prog, un Sequencer a step, un Arpeggiatore e un **Rig Controller** che li lancia come clip. **SY.CORE Live** lo porta dentro un set di Ableton Live: SY.CORE segue il clock di Live e suona sulle tracce di Live, attraverso un device Max for Live, **SY.CORE Link**.
 
-Il risultato è un rig senza plugin VST dentro Live. I synth suonano con i loro suoni veri e li ritrovano alla riapertura del progetto; i pattern cambiano durante la riproduzione, a tempo con Live.
+Live resta il DAW: registra, arrangia, mixa e suona i tuoi strumenti. SY.CORE genera e cambia le parti **mentre il brano suona**, a tempo con Live, e tutto quello che suona si registra in Live come normali clip MIDI.
 
-**Per chi è:** musicisti che suonano dal vivo o in jam con synth hardware, e tecnici audio che devono rendere quel rig affidabile e ripetibile.
+**Per chi è:** musicisti che suonano dal vivo o in jam con Live e vogliono le parti generative sul palco, non solo in studio; e chi vuole che i propri controller guidino tutto il rig, non un device alla volta.
 
-**Stato:** SY.CORE esiste ed è usato oggi. Una parte del routing descritto qui funziona già; l'integrazione stretta con Live è in sviluppo. Il paragrafo *Stato e roadmap* indica cosa è disponibile oggi e cosa arriverà.
+**Stato:** disponibile oggi. I device sono alla versione 1.7.0, come Live Pack o zip (release GitHub `link-v1.7.0`); SY.CORE si apre dal suo indirizzo in Chrome o Edge. Il paragrafo *Stato e roadmap* elenca cosa è fatto e cosa resta aperto.
 
-## Il problema: il livello MIDI del rig
+## Il problema: prima generi, poi suoni
 
-Il motore audio di Live, la Session View e la registrazione funzionano molto bene. Il punto debole è tutto ciò che sta intorno: come il MIDI arriva ai synth, come i synth ricordano i loro suoni, come tutto resta a tempo e cosa succede quando qualcosa si rompe.
+I generatori MIDI sono tanti, anche basati su AI, e quasi tutti lavorano a monte della performance: generi una clip, la trascini su una traccia e solo dopo la lanci. Una progressione diversa o un break non previsto a metà set vogliono dire tornare all'editor.
 
-| Area | Cosa succede oggi con Live da solo | Effetto sul palco o in studio |
+Il resto del rig ha i suoi punti deboli quando suoni dal vivo:
+
+| Area | Con Live da solo | Effetto sul palco |
 | --- | --- | --- |
-| Routing | Ogni traccia ascolta una porta e un canale; split, layer e fanout richiedono più tracce armate, Instrument Rack o Max for Live | Durante una jam, cambiare chi suona cosa significa ri-armare tracce |
-| Synth hardware | Live non salva lo stato dei suoni hardware; i Program Change sono numeri senza nomi; niente SysEx senza Max for Live | Un progetto riaperto dopo mesi non suona più come prima |
-| Plugin | Tutti i VST girano nel processo di Live, senza isolamento | Un plugin che si blocca ferma il set intero |
-| Sync | Live che segue un clock esterno oscilla; il clock verso più dispositivi va regolato porta per porta | Fasi che scivolano, partenze fuori battuta |
-| Generazione | I generatori MIDI di Live 12 lavorano sulle clip mentre le modifichi, non mentre il brano suona | Nessun pattern che evolve dal vivo senza strumenti aggiuntivi |
-| Registrazione | Tracce, ingressi e monitoring vanno preparati a mano per ogni sorgente; la latenza del giro MIDI non si misura facilmente | Idee perse e parti registrate fuori griglia |
+| Generazione | I generatori di clip e i MIDI Generators di Live 12 lavorano mentre modifichi, non mentre il brano suona | Nessun pattern che cambia sulla battuta senza fermarsi |
+| Controller | Una manopola è mappata su un parametro di un device; una nuova traccia, un nuovo set o un altro synth vogliono una nuova mappatura | Ogni set inizia rimappando |
+| Performance | La Session View lancia clip; niente lancia, sfoltisce o rigenera un *generatore* | Build-up e break richiedono clip preparate |
+| Strumenti esterni | Un'app nel browser raggiunge Live tramite porte MIDI virtuali: il loro timing, la loro configurazione, porte non multi-client su Windows | Note fuori griglia, configurazioni fragili |
 
-Nessuno di questi limiti riguarda la qualità audio. Riguardano il rig: è lo spazio che SY.CORE occupa.
+Niente di questo riguarda l'audio di Live. Riguarda quello che gli sta intorno: è lo spazio che SY.CORE occupa.
 
-## La soluzione: Live suona, SY.CORE smista
+## La soluzione: SY.CORE Link
 
-Live resta il DAW e il clock master. SY.CORE riceve il MIDI da Live, lo smista a synth e app, e rimanda a Live quello che le app suonano.
+```
+SY.CORE (browser)                          Ableton Live
+┌──────────────────────┐   WebSocket   ┌───────────────────────────────┐
+│ Drum Machine  ch 10  │ ───────────▶  │ SY.CORE Link        (bridge)   │
+│ Chord Prog    ch 1   │  127.0.0.1    │   ├─▶ Link Receive ch 10       │──▶ Drum Rack
+│ Sequencer     ch 2   │    :9400      │   ├─▶ Link Receive ch 1        │──▶ synth
+│ Rig Controller       │ ◀───────────  │   └─▶ …                        │──▶ …
+└──────────────────────┘  tempo, posiz. └───────────────────────────────┘
+                          e Play / Stop di Live
+```
 
-![Architettura: Live, SY.CORE, synth e tre porte virtuali](assets/architettura-it.png)
+- **SY.CORE Link** (`sycore-link.amxd`, uno per set) fa girare un piccolo server dentro Live. Manda a SY.CORE il trasporto di Live (Play, Stop, tempo, posizione, metro) e riceve le note di SY.CORE.
+- SY.CORE **segue il clock di Live** e manda ogni nota **con il beat di Live su cui deve suonare**: il device la suona su quel beat, così i ritardi del browser non spostano le note.
+- **SY.CORE Link Receive** (`sycore-link-receive.amxd`) sta su ogni traccia che suona una parte e lascia passare un canale MIDI: Drums sul 10, Chords sull'1 e così via. Le note le suonano i tuoi strumenti: Drum Rack, Wavetable, Drift, synth hardware tramite External Instrument.
+- **Niente porte MIDI virtuali e niente plugin.** SY.CORE non è un VST né un AU: niente da scansionare o autorizzare. In Live trascini device Max for Live.
 
-Tre porte MIDI virtuali collegano i due programmi. SY.CORE possiede le porte dei synth hardware e Live vede solo le porte virtuali: niente conflitti e niente percorsi doppi.
+**Timing misurato** (Live 12, 120 BPM, una take di 34 battute registrata in Arrangement): scarto medio dalla griglia **+0,7 ms**, deviazione tipica circa **±5 ms** (la risoluzione con cui Live registra), durate delle note stabili.
 
-| Porta | Direzione | Cosa trasporta |
+## Quattro device
+
+| Device | Cosa fa | Quanti |
 | --- | --- | --- |
-| `SYC IN` | Live → SY.CORE | Fino a 16 canali di note, CC e Program Change dalle tracce di Live |
-| `SYC CTRL` | Live → SY.CORE | Clock, Start/Stop, posizione nel brano e comandi alle app; non arriva mai ai synth |
-| `SYC OUT` | SY.CORE → Live | Quello che suonano le app, per registrarlo in Live |
+| **SY.CORE Link** | Il bridge: trasporto e tempo di Live verso SY.CORE, le note di SY.CORE in Live a tempo. LED di stato: ambra in attesa, verde connesso, rosso errore | uno per set |
+| **SY.CORE Link Receive** | Suona un canale (1–16) di quello che manda SY.CORE, sulla sua traccia | uno per traccia che suona SY.CORE |
+| **SY.CORE Rig** | Il Rig Controller dentro Live: lo stesso layout Launchpad 9×9, con le stesse etichette e gli stessi colori; un click è la pressione di un pad. La sua finestra mostra **NOW / NEXT** (l'accordo che suona e il prossimo) con la barra di avanzamento dell'accordo | opzionale, qualsiasi traccia |
+| **SY.CORE Map** | I tuoi encoder sullo strumento della traccia selezionata in Live, per tabella (vedi *Mappa il controller una volta*) | opzionale, uno per set |
 
-## Per il musicista
+## Per i musicisti
 
-Premi Play in Live e le app di SY.CORE suonano con te: accordi, batteria, basso e sequenze sono strumenti vivi, non clip da trascinare.
+Premi Play in Live e le app di SY.CORE suonano insieme. Sono strumenti che suoni, non clip da trascinare.
 
-- **App generative a tempo con Live.** Chord Sequencer, Drum Machine con Bass Line, Sequencer e Arpeggiator seguono il clock di Live e ripartono dalla battuta giusta quando sposti la posizione.
-- **Otto slot per app, A–H.** Ogni slot è una variante del pattern; il cambio avviene alla battuta successiva, come nella Session View.
-- **Generazione durante la riproduzione.** Generate e Mutate creano una nuova variante con gli stili integrati, l'algoritmo euclideo o l'AI, senza fermare la musica.
-- **Song Composer.** Da tonalità, stile e tempo nasce un brano intero: sezioni, accordi, batteria, basso, sequenze e i preset suggeriti per i tuoi synth.
-- **Le scene di Live diventano sezioni del brano.** Lanciare una scena cambia insieme gli slot di tutte le app e i suoni dei synth.
-- **Controllo dalle clip.** Una traccia di controllo in Live seleziona slot, lancia Fill e Repeater, trasporta la tonalità. Le azioni si registrano e si automatizzano come qualsiasi clip.
-- **Una tastiera per tutto il rig.** Split, layer e Note Latch per tenere un drone si configurano una volta in SY.CORE e si richiamano per brano.
-- **I suoni veri dei tuoi synth.** Ascolti le idee subito sul rig, non su un General MIDI. Sul Roland S-1 i preset del Sound Engine si caricano via CC sul preset corrente, senza Program Change.
-- **Anche con gli strumenti di Live.** Wavetable, Drift, Operator, Simpler e Drum Rack restano a disposizione. Le clip di Live li suonano come sempre, e le app di SY.CORE possono suonarli attraverso `SYC OUT`, da sole o in layer con un synth hardware.
+- **Generazione durante la riproduzione.** **GEN** scrive al volo un nuovo pattern di batteria, una progressione o una sequenza, dal Launchpad, nello stile scelto per slot. **Shift + GEN** (Mutate) ne riscrive solo una parte, secondo *Vary*, e tiene il resto.
+- **Otto slot per app, A–H**, lanciati come clip: uno slot parte, cambia o si ferma al prossimo punto di sync. Con Live fermo, un pad **arma** lo slot e il Play di Live lo fa partire.
+- **Fill** suona un fill alla battuta successiva; **Repeat** (tenuto) ripete la batteria; **Density** sfoltisce batteria e sequenze con una manopola, per build-up, break e drop senza preparare altro.
+- **Accordi uno alla volta.** Il Chord Prog genera progressioni, algoritmiche o con AI, e puoi suonarle accordo per accordo dai pad. **Now / Next** mostra sempre l'accordo che suona, il prossimo e quanto dura ciascuno.
+- **La tonalità dal Rig.** Key − / + sposta la tonica del Chord Prog di un semitono, Shift passa maggiore ↔ minore, e le progressioni che scrive GEN sono in quella tonalità; il GEN del Sequencer la segue e, mentre suona, il Sequencer segue gli accordi del Chord Prog (trasponendo, per grado, o come arpeggio dell'accordo che suona). **Seq Free** lo sgancia per un po', per tenere un riff sopra i cambi.
+- **Sequencer fino a 64 step**, una catena di 16 pattern, e generatori con linee Melody (motivo) o Classic, ritmo pesato, euclideo o casuale.
+- **Trasporto e tempo di Live dal Rig.** Il Play / Stop del Rig avvia e ferma Live stesso; TAP, − / + e la manopola del tempo impostano il tempo di Live.
+- **Tutto finisce in Live.** Registri in Arrangement View e ottieni normali clip MIDI: le modifichi, le quantizzi, le riusi. SY.CORE non ti chiude nel browser.
 
-## Per il tecnico audio
+## Parla la lingua di Live
 
-Il rig diventa un sistema con regole chiare: chi possiede quale porta, chi è master del clock, quanto vale la latenza e cosa succede se un pezzo cade.
-
-| Tema | Come lo gestisce SY.CORE Live |
+| In Live sei abituato a… | In SY.CORE |
 | --- | --- |
-| Porte MIDI | SY.CORE possiede le porte hardware; Live vede solo tre porte virtuali. Niente conflitti sulle porte non multi-client di Windows, niente doppi percorsi |
-| Routing | MIDI Flow: un canvas visuale con 16 lane per i canali di Live, cavi verso synth e app, note range, filtri di canale, fanout multicanale per i multitimbrici |
-| Clock | Live è sempre master, quindi si evita la sua modalità slave instabile. SY.CORE segue con aggancio della fase a ogni battuta e Song Position Pointer |
-| Perdita del clock | Se Live si blocca, SY.CORE può fermarsi o continuare con il clock interno all'ultimo BPM e riagganciarsi al Play successivo |
-| Latenza | Un test di andata e ritorno (loopback ping) misura il giro Live → SY.CORE → Live e propone i valori da inserire in Live: Sync Delay e Hardware Latency |
-| Recall dei suoni | Ogni Program Change da Live segue una regola per dispositivo: inoltrato, tradotto con i banchi e i nomi delle patch, oppure applicato come configurazione di CC (Roland S-1) |
-| Plugin | In Live nessun VST di terze parti obbligatorio: tracce MIDI, External Instrument e, se vuoi, gli strumenti nativi di Live. I synth software girano standalone: se uno si blocca, Live continua |
-| Loop di feedback | Configurazione documentata porta per porta e rilevamento dei loop in SY.CORE |
-| Ripetibilità | Una configurazione di Flow per ogni set di Live, un template di Live Set e un wizard che verifica porte, clock e latenza prima della sessione |
+| Lanciare una clip dalla Session View | Lanciare gli slot A–H di Drum, Chord, Seq, Bass e Arp dai pad |
+| La Launch Quantization globale | **Trigger sync** per traccia: off (subito), 1 beat, 2 beat, battuta, sulla griglia del brano di Live |
+| Premere una clip che suona per fermarla | Il pad dello slot che suona ferma l'app, a tempo |
+| Lanciare una clip a trasporto fermo | Il pad **arma** lo slot: parte con il Play di Live |
+| Le scene | **Sezioni 1–8**: un pad cambia insieme gli slot di tutte le app |
+| Una Macro su un Rack | **Density**, **Intensity** (volume e velocity), Mute e Solo per traccia, anche da controller |
 
-Durante lo show una vista dedicata, Live Rig, mostra clock, attività delle lane e avvisi (porta sparita, loop, clock perso), con i soli comandi utili sul palco: mute delle lane, panico, passaggio a clock interno.
+## Il Rig Controller
 
-## Rig Performance Mode
+Un controller per tutto il rig, non per uno strumento. Righe **Drum, Chord, Seq, Bass, Arp**, slot A–H, Mute / Solo / GEN per riga, le sezioni, Fill, Repeat, Seq Free, la tonalità, Panic e il passaggio al clock interno (tenendo premuto).
 
-Il rig si suona a scene: ogni app è una traccia, ogni slot A–H una clip, ogni sezione una scena che cambia insieme pattern, suoni e routing, a tempo con Live.
+- **Tre viste dello stesso stato:** il layout Rig in SY.CORE, un **Launchpad Mini MK1** (griglia 8×8, LED sempre allineati a SY.CORE, così dopo una disconnessione si rimette in riga da solo) e un **AKAI MIDImix** (strisce di manopole, fader e pulsanti, con pickup). Il device SY.CORE Rig mostra il layout Launchpad dentro Live.
+- **Qualsiasi altro controller** con il MIDI Learn (click destro su un comando), salvato e condiviso come **template di controller** (JSON).
+- **La riga Bass è una parte a sé:** la linea di basso della Drum Machine, lanciata indipendentemente dalla batteria. **La riga Arp** sceglie il modo dell'arpeggio; le sue manopole impostano l'estensione in ottave e il rate.
+- **Workspace Performance:** una schermata da palco con i player come *play view* (quello che suona, con lo step e l'accordo che suonano accesi; gli step del Sequencer colorati per velocity e attivati / disattivati con un click), i comandi del Rig con Now / Next sopra un grande Play, e la griglia del Launchpad. Pannelli affiancati, ridimensionabili al tocco, effetti alleggeriti.
 
-**Un controller del rig, non degli strumenti.** Una griglia di slot per Chord, Drum, Bass, Seq e Arp, le sezioni del brano, split e mute delle lane, Fill, Repeat e Latch. Panico e passaggio al clock interno si attivano tenendo premuto. Il controller mostra sempre lo stato di SY.CORE, quindi dopo uno scollegamento torna allineato da solo. Funziona con controller che molti hanno già, come un Launchpad o un AKAI MIDImix.
+## Mappa il controller una volta
 
-**Quattro opzioni per traccia** decidono come e quando uno slot parte:
+In Live una manopola è mappata su un parametro di un device. Con **SY.CORE Map**, l'encoder *n* guida sempre lo **slot *n*** dello strumento in primo piano:
 
-| Opzione | Valori |
-| --- | --- |
-| Press | Retrigger, Hold & stop, Hold & motion, Latch |
-| Motion (a fine slot) | Stay, One shot, March & wrap / stay / stop, Random, Exclusive random |
-| Trigger sync | Off, da 1/4 di beat a 4 beat, Auto, Queue, Tolerant |
-| Position sync | Off, da 1/4 di beat a 4 beat, Auto |
+- **Segue la selezione:** selezioni una traccia in Live e gli encoder sono sul suo strumento (FOLLOW); oppure li blocchi su una traccia (LOCK) e passi da una traccia all'altra dal controller.
+- **Una tabella per tipo di strumento:** filtro sull'1, risonanza sul 2… su ogni Drift, Analog o Simpler (tabelle di fabbrica incluse).
+- **Rack e preset di Live:** prima le Macro configurate del Rack, con i loro nomi, poi lo strumento interno per gli slot rimasti; le **Macro Variations** richiamate o randomizzate dai pad.
+- **Pickup:** cambi traccia e giri, senza salti. Gli encoder muovono i parametri come il mouse: automazioni e mouse continuano a funzionare.
+- **Su uno schermo touch:** il pannello Map mostra gli slot come riquadri o come due file di fader verticali.
 
-**Scene del rig.** Uno slot ricorda il suono della sua parte: un preset del Sound Engine o una patch dei banchi del synth. Una scena ricorda gli slot di ogni app, la configurazione di MIDI Flow, lo split, i mute delle lane e i valori dei controller. Si programma una volta, catturando lo stato del rig, e si richiama da Live, dalla timeline o dal controller.
+## A confronto con i plugin generatori MIDI con AI
 
-**Da Live.** Nell'arrangement basta una clip di controllo per sezione: la sua nota richiama la scena. Con note lunghe quanto la sezione e il chase delle note di Live, ripartendo a metà brano il rig si trova già nella sezione giusta. Con Max for Live si potranno usare direttamente i locator di Live per nome; senza DAW si usa la Live Timeline di SY.CORE.
-
-È lo stesso modello della Session View, applicato a ciò che Live non raggiunge: pattern generativi riscritti mentre il brano suona e il rig hardware.
-
-## Scenari d'uso
-
-Cinque situazioni reali, dal palco allo studio.
-
-**Live set ibrido.** Un set di 45 minuti con Live, un Roland S-1, un modulo multitimbrico e un synth software standalone, senza VST in Live. Ogni scena di Live è una sezione del brano: lanciarla cambia accordi, batteria, basso e suoni insieme. Le clip di Live suonano lead e pad; SY.CORE le smista ai synth giusti.
-
-**Jam in studio sempre in registrazione.** Suoni la tastiera, SY.CORE genera accordi e batteria. Le tracce di Live che ricevono l'output delle app sono sempre armate, e la MIDI Capture di SY.CORE registra in parallelo come rete di sicurezza. Quando l'idea gira, una variante generata entra alla battuta successiva e finisce nella registrazione.
-
-**Scrittura con l'AI.** Parti da tonalità, stile e tempo. Il Song Composer propone un brano completo e i suoni per i tuoi synth; lo ascolti subito sul rig, lo correggi negli editor di SY.CORE e lo registri in Live, oppure trascini i file MIDI.
-
-**Total recall.** Riapri un progetto dopo mesi. La prima clip di ogni traccia manda un Program Change, e SY.CORE riporta ogni synth al suono salvato: per banco e nome della patch, o come configurazione di CC sul Roland S-1.
-
-**Live si blocca, la musica continua.** Sul palco Live si chiude a metà brano. SY.CORE prosegue con il clock interno: batteria, basso e accordi sui synth hardware non si fermano. Riavvii Live, premi Play e il rig si riaggancia.
-
-## Rispetto ai generatori MIDI AI in plugin
-
-I generatori AI in plugin producono clip da trascinare in una traccia; SY.CORE Live suona, genera e cambia le parti mentre il brano va, sui synth del tuo rig.
-
-| | Generatore AI in plugin | SY.CORE Live |
+| | Plugin generatore AI | SY.CORE Live |
 | --- | --- | --- |
-| Risultato | Clip MIDI da trascinare | Clip e riproduzione dal vivo, a tempo, con cambi alla battuta |
-| Quando genera | Fuori dalla riproduzione, un prompt alla volta | Anche durante la riproduzione, con generatori integrati o AI |
-| Parti | Di solito una per volta | Accordi, batteria, basso e sequenze coerenti, per sezioni |
-| Strumenti | Quelli caricati nel DAW | Qualsiasi synth hardware o software del rig |
-| Suoni | Non conosce i preset dei tuoi synth | Sceglie i preset dai banchi dei tuoi synth |
-| Nel DAW | Un plugin VST o AU | Nessun plugin: tracce MIDI e External Instrument |
-| AI | Il servizio del prodotto | Il provider che scegli, con la tua chiave; generatori integrati senza rete |
+| Risultato | Clip MIDI da trascinare | Riproduzione dal vivo a tempo, con cambi sulla battuta, e clip registrate in Live |
+| Quando genera | Fuori dalla riproduzione, un prompt alla volta | Durante la riproduzione, dai pad, con i generatori integrati o con l'AI |
+| Parti | Di solito una alla volta | Batteria, basso, accordi, sequenze e arpeggi che condividono tonalità e accordi |
+| Strumenti | Quelli caricati nel DAW | Gli strumenti di Live, synth hardware e software |
+| Nel DAW | Un plugin VST o AU | Device Max for Live su normali tracce MIDI |
+| AI | Il servizio del prodotto | Il provider che scegli, con la tua chiave; i generatori integrati funzionano offline |
 
-Il confronto riguarda la categoria di prodotto. Le funzioni dei singoli plugin cambiano da versione a versione.
+Il confronto riguarda la categoria di prodotto; i singoli plugin cambiano da una versione all'altra.
 
 ## Requisiti e configurazione
 
-Servono Ableton Live 12 (Standard o Suite), Chrome o Edge e tre porte MIDI virtuali. SY.CORE non si installa: si apre nel browser.
+| | |
+| --- | --- |
+| **Ableton Live** | Live 12 con Max for Live (Suite, oppure Standard + Max for Live) |
+| **Browser** | Chrome o Edge, con SY.CORE aperto; consenti l'*accesso alla rete locale* se Chrome lo chiede (SY.CORE parla con il bridge su `127.0.0.1:9400`) |
+| **Sistema** | Windows 10/11 (testato) o macOS (dovrebbe funzionare, non ancora testato) |
+| **Device** | SY.CORE Live Devices 1.7.0: Live Pack (`.alp`) o zip, dalla release GitHub `link-v1.7.0` o dalla pagina *Ableton Live* del sito di SY.CORE |
 
-| | Windows | macOS |
-| --- | --- | --- |
-| Browser | Chrome o Edge aggiornato | Chrome o Edge aggiornato |
-| Porte MIDI virtuali | loopMIDI (gratuito) | IAC Driver, già incluso nel sistema |
-| Driver audio | ASIO della scheda audio | Nessuno (Core Audio) |
-| Opzionale: audio del browser in Live | VB-Cable | BlackHole |
+**Configurazione:**
 
-**Configurazione, una volta sola:**
+1. **Installa i device.** Live Pack: doppio click, Live chiede dove scompattarlo, poi aggiungi quella cartella al browser (*Places › Add Folder…*). Zip: scompattalo, tieni i file insieme, metti la cartella nella User Library o aggiungila sotto Places.
+2. **Trascina SY.CORE Link** su una traccia MIDI (es. *SY.CORE Control*): il LED diventa ambra, poi verde quando SY.CORE si connette.
+3. **Trascina SY.CORE Link Receive** su ogni traccia che suona una parte e clicca il suo canale.
+4. **In SY.CORE**, scegli la sorgente di clock **EXT · Live (M4L) — SY.CORE Link** e, in MIDI Flow, collega le app a **Live (M4L)** con i canali dei receiver.
 
-1. Crea tre porte virtuali con questi nomi: `SYC IN` (note e controlli dalle tracce di Live), `SYC CTRL` (clock e comandi alle app), `SYC OUT` (output delle app verso Live, per registrare).
-2. In Live, Preferences › Link, Tempo & MIDI: attiva `SYC IN` e `SYC CTRL` solo in uscita, con il clock (Sync, tipo Song) su `SYC CTRL`; attiva `SYC OUT` solo in ingresso. Disattiva in Live le porte dei synth hardware.
-3. Apri il template di Live Set di SY.CORE Live, con tracce, External Instrument e scene già pronti.
-4. In SY.CORE il wizard registra le porte, imposta Live come sorgente del clock, carica la configurazione di MIDI Flow e misura la latenza da copiare in Live.
-
-Max for Live non è richiesto. Serve solo per le estensioni opzionali.
+**Buono a sapersi:** dal vivo suona in **Session View** (in Arrangement il Play di Live suona anche le clip già presenti); registra in Arrangement con un **Count-In di 1 battuta** (la prima nota dopo il Play può arrivare qualche decina di ms in ritardo). Il Launchpad usato dal Rig non deve essere una Control Surface di Live. La griglia di sync conta le battute in 4/4.
 
 ## Stato e roadmap
 
-Il routing funziona già oggi; il sync stretto con Live e il controllo dalle clip arrivano con la prima versione di SY.CORE Live.
-
 | Fase | Cosa comprende |
 | --- | --- |
-| **Disponibile oggi** | MIDI Flow con routing tra dispositivi e app, split, filtri di canale e fanout multicanale; Note Latch; MIDI Actions da un controller; banchi Multi Sound e Sound Engine; generatori integrati, AI e Song Composer; export in file MIDI da trascinare in Live |
-| **Prima versione (MVP)** | SY.CORE segue il clock di Live con aggancio della fase e Song Position Pointer; continuità se il clock si perde; nodo Ableton Live in MIDI Flow con inspector; Program Change per dispositivo; Control Map dalle clip di Live; ritorno dell'output a Live con latenza compensata; template di Live Set, wizard e vista Live Rig |
-| **Subito dopo** | Scene di Live come sezioni del Song Composer; AI che tiene conto dei synth e dei preset del rig |
-| **Rig Performance Mode** | Rig Controller con Launchpad Mini MK1 e AKAI MIDImix, opzioni di performance per traccia, scene del rig richiamate da Live, dalla timeline o dal controller, con chase. Un prototipo dell'interfaccia esiste già su un branch di sviluppo |
-| **Estensioni opzionali** | Device Max for Live per leggere tonalità, scene e locator da Live e scrivere clip direttamente negli slot; OSC per superfici su tablet; Ableton Link; script per Push; app desktop che crea da sola le porte virtuali |
+| **Disponibile oggi** | SY.CORE Link 1.7.0 (bridge, Receive, Rig, Map) come Live Pack e zip; SY.CORE segue clock, tempo e posizione di Live; Play / Stop e tempo di Live dal Rig; Rig Controller con Launchpad Mini MK1, AKAI MIDImix, MIDI Learn e template di controller; per traccia Trigger sync, Mute, Solo, Intensity, Density; sezioni; GEN e Mutate durante la riproduzione; Seq Free; Now / Next; workspace Performance; SY.CORE Map con tabelle per Drift, Analog, Simpler e Rack; registrazione in Live come clip MIDI |
+| **Prossimi passi** | Scene del rig: uno slot o una sezione che richiama anche suoni e routing; richiamo dai locator o dalle scene di Live, con chase partendo a metà brano; regole di Program Change per dispositivo; un editor di tabelle per SY.CORE Map e strumenti VST |
+| **Più avanti** | Scene di Live come sezioni del Song Composer; AI che conosce i synth e i preset del tuo rig; un template di Live Set; test su macOS; OSC per superfici su tablet |
 
 ## Principi
 
-SY.CORE estende la voce degli strumenti, non la sostituisce. SY.CORE Live applica lo stesso principio ad Ableton Live.
+SY.CORE estende la voce di uno strumento, non la sostituisce. SY.CORE Live applica lo stesso principio ad Ableton Live.
 
-- **Local-first.** Pattern, preset, routing e mappature restano sul computer davanti a te. Al momento dello show non serve internet; l'AI è un'opzione, i generatori integrati funzionano senza rete.
-- **Nessun plugin obbligatorio.** Il rig base richiede solo il browser e tre porte MIDI virtuali. Max for Live, Ableton Link e l'app desktop sono estensioni, mai requisiti.
-- **Open source.** Il codice è sotto licenza MIT: si può leggere, verificare ed estendere ad altri strumenti.
-- **Donationware.** Nessuna versione Pro e nessuna funzione bloccata: le donazioni sono un ringraziamento, non un pedaggio.
+- **Local-first.** Pattern, preset, routing e mappature restano sul computer che hai davanti. SY.CORE parla con Live su `127.0.0.1`; l'AI è un'opzione e i generatori integrati funzionano offline.
+- **Niente plugin.** SY.CORE si apre nel browser; in Live ci sono solo device Max for Live su normali tracce MIDI.
+- **Open source.** SY.CORE è sotto licenza MIT; i device per Live sono GPL-3.0. Si possono leggere, verificare ed estendere.
+- **Donationware.** Nessuna versione Pro e nessuna funzione bloccata: le donazioni sono un grazie, non un pedaggio.
