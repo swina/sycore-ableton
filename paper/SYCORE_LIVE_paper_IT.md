@@ -12,7 +12,7 @@ Live resta il DAW: registra, arrangia, mixa e suona i tuoi strumenti. SY.CORE ge
 
 **Per chi è:** musicisti che suonano dal vivo o in jam con Live e vogliono le parti generative sul palco, non solo in studio; e chi vuole che i propri controller guidino tutto il rig, non un device alla volta.
 
-**Stato:** disponibile oggi. I device sono alla versione 1.8.0, come Live Pack o zip (release GitHub `link-v1.8.0`); SY.CORE si apre dal suo indirizzo in Chrome o Edge. Il paragrafo *Stato e roadmap* elenca cosa è fatto e cosa resta aperto.
+**Stato:** disponibile oggi. I device sono alla versione 1.8.0, come zip (release GitHub `link-v1.8.0`); SY.CORE si apre dal suo indirizzo in Chrome o Edge. Il paragrafo *Stato e roadmap* elenca cosa è fatto e cosa resta aperto.
 
 ## Il problema: prima generi, poi suoni
 
@@ -121,11 +121,11 @@ Il confronto riguarda la categoria di prodotto; i singoli plugin cambiano da una
 | **Ableton Live** | Live 12 con Max for Live (Suite, oppure Standard + Max for Live) |
 | **Browser** | Chrome o Edge, con SY.CORE aperto; consenti l'*accesso alla rete locale* se Chrome lo chiede (SY.CORE parla con il bridge su `127.0.0.1:9400`) |
 | **Sistema** | Windows 10/11 (testato) o macOS (dovrebbe funzionare, non ancora testato) |
-| **Device** | SY.CORE Live Devices 1.8.0: Live Pack (`.alp`) o zip, dalla release GitHub `link-v1.8.0` o dalla pagina *Ableton Live* del sito di SY.CORE |
+| **Device** | SY.CORE Live Devices 1.8.0: uno zip, dalla release GitHub `link-v1.8.0` o dalla pagina *Ableton Live* del sito di SY.CORE |
 
 **Configurazione:**
 
-1. **Installa i device.** Live Pack: doppio click, Live chiede dove scompattarlo, poi aggiungi quella cartella al browser (*Places › Add Folder…*). Zip: scompattalo, tieni i file insieme, metti la cartella nella User Library o aggiungila sotto Places.
+1. **Installa i device.** Scompatta lo zip, tieni i file insieme, metti la cartella nella User Library o aggiungila sotto Places.
 2. **Trascina SY.CORE Link** su una traccia MIDI (es. *SY.CORE Control*): il LED diventa ambra, poi verde quando SY.CORE si connette.
 3. **Trascina SY.CORE Link Receive** su ogni traccia che suona una parte e clicca il suo canale.
 4. **In SY.CORE**, scegli la sorgente di clock **EXT · Live (M4L) — SY.CORE Link** e, in MIDI Flow, collega le app a **Live (M4L)** con i canali dei receiver.
@@ -136,7 +136,7 @@ Il confronto riguarda la categoria di prodotto; i singoli plugin cambiano da una
 
 | Fase | Cosa comprende |
 | --- | --- |
-| **Disponibile oggi** | SY.CORE Link 1.8.0 (bridge, Receive, Rig, Map) come Live Pack e zip; SY.CORE segue clock, tempo e posizione di Live; Play / Stop e tempo di Live dal Rig; Rig Controller con Launchpad Mini MK1, AKAI MIDImix, MIDI Learn e template di controller; per traccia Trigger sync, Mute, Solo, Intensity, Density; sezioni; GEN e Mutate durante la riproduzione; Seq Free; Now / Next; workspace Performance; SY.CORE Map con tabelle per Drift, Analog, Simpler e Rack; P1 / P2 del Sequencer sugli slot del Map di qualsiasi traccia (1.8); registrazione in Live come clip MIDI |
+| **Disponibile oggi** | SY.CORE Link 1.8.0 (bridge, Receive, Rig, Map) come zip; SY.CORE segue clock, tempo e posizione di Live; Play / Stop e tempo di Live dal Rig; Rig Controller con Launchpad Mini MK1, AKAI MIDImix, MIDI Learn e template di controller; per traccia Trigger sync, Mute, Solo, Intensity, Density; sezioni; GEN e Mutate durante la riproduzione; Seq Free; Now / Next; workspace Performance; SY.CORE Map con tabelle per Drift, Analog, Simpler e Rack; P1 / P2 del Sequencer sugli slot del Map di qualsiasi traccia (1.8); registrazione in Live come clip MIDI |
 | **Prossimi passi** | Scene del rig: uno slot o una sezione che richiama anche suoni e routing; richiamo dai locator o dalle scene di Live, con chase partendo a metà brano; regole di Program Change per dispositivo; un editor di tabelle per SY.CORE Map e strumenti VST |
 | **Più avanti** | Scene di Live come sezioni del Song Composer; AI che conosce i synth e i preset del tuo rig; un template di Live Set; test su macOS; OSC per superfici su tablet |
 
