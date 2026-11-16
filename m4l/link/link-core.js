@@ -356,6 +356,22 @@ function parseMap(m) {
   if (slot < 0 || finite(m.value) === undefined) return undefined;
   return { slot, value: clamp01(m.value) };
 }
+/** `map-track` (1.8) → { track 0–999, slot 0–15, value 0–1 }: slot n of the instrument on that track,
+ *  the Map's target unchanged (the Sequencer's P1 / P2); undefined if not one. */
+function parseMapTrack(m) {
+  if (!m || m.type !== 'map-track') return undefined;
+  const track = int(m.track, 0, 999, -1);
+  const slot = int(m.slot, 0, MAP_SLOTS - 1, -1);
+  if (track < 0 || slot < 0 || finite(m.value) === undefined) return undefined;
+  return { track, slot, value: clamp01(m.value) };
+}
+/** `map-track-slots` (1.8) → a track index (0–999): the slot names of that track's instrument are asked
+ *  for (SY.CORE's P1 / P2 routes); undefined if not one. */
+function parseMapTrackSlots(m) {
+  if (!m || m.type !== 'map-track-slots') return undefined;
+  const t = int(m.track, 0, 999, -1);
+  return t < 0 ? undefined : t;
+}
 /** `map-target` → 'follow' or a track index (0–999); undefined if not one. */
 function parseMapTarget(m) {
   if (!m || m.type !== 'map-target') return undefined;
@@ -402,6 +418,18 @@ function mapTracksFromDevice(t) {
   if (!Array.isArray(o)) return null;
   return { type: 'map-tracks', tracks: o.slice(0, 1000).map(x => ({ index: int(x && x.index, 0, 999, 0), name: text(x && x.name, 128), instrument: text(x && x.instrument, 128) })) };
 }
+/** `maptslots <json { track, device, slots: [name | null] }>` (1.8) → `map-track-slots`, or null. */
+function mapTrackSlotsFromDevice(t) {
+  const o = json(t);
+  if (!o) return null;
+  const track = int(o.track, 0, 999, -1);
+  if (track < 0) return null;
+  const slots = Array.from({ length: MAP_SLOTS }, (_, i) => {
+    const x = Array.isArray(o.slots) ? o.slots[i] : null;
+    return typeof x === 'string' && x ? text(x, 128) : null;
+  });
+  return { type: 'map-track-slots', track, device: o.device ? text(o.device, 128) : '', slots };
+}
 /** `mapparams <json { cls, name, params: [{ name, shown, min, max, q }] }>` → `map-params`, or null. */
 function mapParamsFromDevice(t) {
   const o = json(t);
@@ -415,4 +443,4 @@ function mapParamsFromDevice(t) {
   };
 }
 
-module.exports = { PLAY_LATE_MS, TimedQueue, MAP_SLOTS, parseMapTables, parseMap, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };
+module.exports = { PLAY_LATE_MS, TimedQueue, MAP_SLOTS, parseMapTables, parseMap, parseMapTrack, parseMapTrackSlots, mapTrackSlotsFromDevice, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice, parseRig, rigName, PROTOCOL_VERSION, infoText, infoState, statsText, LATE_TOLERANCE_MS, Transport, NoteTracker, MidiScheduler, validMidi, parseMessage, isNoteOn, isNoteOff };

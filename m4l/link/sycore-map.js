@@ -8,6 +8,8 @@
 //        from the view: "drag <slot> <0–1>" (a slot dragged), "viewready" (the view (re)loaded: the state again),
 //        from the bridge ([r sycore_map]): "tables <json>", "value <slot> <0–1>", "target <follow|track>", "params",
 //        "variation <index | next | prev | store | delete>" (a Rack's Macro Variations), "randomize" (its Macros),
+//        "tvalue <track> <slot> <0–1>" (1.8: slot n of the instrument on that track, the target unchanged — the Sequencer's P1 / P2),
+//        "tslots <track>" (1.8: the slot names of that track's instrument → maptslots <json>),
 //        "sync" (the bridge restarted: everything again)
 //   A slot moves its parameter through the Live API (like the mouse: no lock, the knob in Live follows;
 //   no live.remote~ — it greyed the parameter out and Live kept playing the old value while it held it).
@@ -69,7 +71,7 @@ function bang() {
 }
 function start() {
   ready = 1;
-  post('sycore-map: started\n');
+  post('sycore-map: started (1.8.0: tvalue / tslots)\n');
   view = new LiveAPI(onSelected, 'live_set view');
   view.property = 'selected_track';
   setObs = new LiveAPI(onTracks, 'live_set');
@@ -229,20 +231,13 @@ function tableSlots(info, table, room) {
 // (not named after a message: Max JS calls a function named like the message — "target follow" → target('follow'))
 var foundCache = {};   // track id → { key: its device ids, found }: the instrument search skipped while the devices stay
 var slotCache = {};    // instrument / Rack → its 16 slots (name, range…), values apart
-function goTarget(trackId) {
-  if (DEBUG) post('sycore-map: target ' + trackId + '\n');
-  var t0 = Date.now();
+/** The instrument of a track and its 16 slots (ranges; values apart), by the tables — null: no instrument.
+ *  No side effects on the target (goTarget and the slots moved on another track, tvalue, both use it). */
+function resolveTrack(trackId) {
   var devs = ids(get(trackId, 'devices')), key = devs.join(','), fc = foundCache[trackId];
   var found = fc && fc.key === key ? fc.found : findInstrument(devs, 0);
   foundCache[trackId] = { key: key, found: found };
-  var tname = clean(get(trackId, 'name'));
-  if (!found) {                                   // keep the last instrument (this device's own track…)
-    watchDevices(trackId);                        // an instrument added on it later: taken then
-    T.note = tname + ': no instrument';
-    post('sycore-map: ' + tname + ': no instrument' + (T.devId ? ' — still on ' + T.track + ' > ' + T.device : '') + '\n');
-    sendView();
-    return;
-  }
+  if (!found) return null;
   var inst = found.id !== found.rackId ? found.id : 0;          // the instrument (0: an empty Rack)
   var info = deviceInfo(found.id), table = inst ? tableSet[tableKey(info)] : null;
   var ck = (found.macros ? 'r' + found.rackId + ':' : '') + found.id, sc = slotCache[ck];
@@ -258,6 +253,21 @@ function goTarget(trackId) {
     while (slots.length < SLOTS) slots.push(null);
     slotCache[ck] = { mode: mode, nMacros: nMacros, slots: slots.map(function (x) { return x ? copy(x) : null; }) };
   }
+  return { key: key, found: found, inst: inst, info: info, mode: mode, nMacros: nMacros, slots: slots };
+}
+function goTarget(trackId) {
+  if (DEBUG) post('sycore-map: target ' + trackId + '\n');
+  var t0 = Date.now();
+  var r = resolveTrack(trackId);
+  var tname = clean(get(trackId, 'name'));
+  if (!r) {                                       // keep the last instrument (this device's own track…)
+    watchDevices(trackId);                        // an instrument added on it later: taken then
+    T.note = tname + ': no instrument';
+    post('sycore-map: ' + tname + ': no instrument' + (T.devId ? ' — still on ' + T.track + ' > ' + T.device : '') + '\n');
+    sendView();
+    return;
+  }
+  var found = r.found, inst = r.inst, info = r.info, mode = r.mode, nMacros = r.nMacros, slots = r.slots;
   var ti = trackIndex(trackId), shown = found.rack || (inst ? info.name : '');
   if (ti >= 0 && (tracks[ti].instrument !== shown || tracks[ti].name !== tname)) { tracks[ti].instrument = shown; tracks[ti].name = tname; sendTracks(); }
   T = { trackId: trackId, track: tname, index: trackIndex(trackId), devId: found.id, device: inst ? info.name : '', cls: inst ? info.cls : '',
@@ -417,6 +427,41 @@ function setSlot(s, v) {
   if (DEBUG_VAL) post('sycore-map: set ' + s + ' ' + p.name + ' x=' + x + ' → live ' + num(p.id, 'value') + '\n');
   outlet(1, 'val', s, p.value);
 }
+// ── a slot on another track (tvalue: the Sequencer's P1 / P2, 1.8) — the target and its observers untouched ──
+var remote = {};   // track id → { key: its device ids, t: checked at, slots, apis: slot → LiveAPI }
+var REMOTE_CHECK_MS = 1000;   // the track's devices re-read at most once a second
+function remoteSlots(trackId) {
+  var r = remote[trackId], now = Date.now();
+  if (r && now - r.t < REMOTE_CHECK_MS) return r;
+  var key = ids(get(trackId, 'devices')).join(',');
+  if (r && r.key === key) { r.t = now; return r; }
+  var res = resolveTrack(trackId);
+  r = remote[trackId] = { key: key, t: now, slots: res ? res.slots : [], apis: {} };
+  if (DEBUG) post('sycore-map: tvalue on ' + clean(get(trackId, 'name')) + ': ' + (res ? (res.inst ? res.info.name : '(Rack)') : 'no instrument') + '\n');
+  return r;
+}
+/** Slot s of the instrument on track `index` (the set's order) to v (0–1); the target's own track: setSlot. */
+function setTrackSlot(index, s, v) {
+  var t = tracks[index];
+  if (!t || s < 0 || s >= SLOTS) return;
+  if (t.id === T.trackId) { setSlot(s, v); return; }
+  var r = remoteSlots(t.id), p = r.slots[s];
+  if (!r.logged) { r.logged = 1; post('sycore-map: tvalue on ' + t.name + ' (slot ' + (s + 1) + (p ? ': ' + p.name : ': empty — nothing set') + ')\n'); }
+  if (!p) return;
+  var x = p.min + Math.max(0, Math.min(1, v)) * (p.max - p.min);
+  if (p.int) x = Math.round(x);
+  try { (r.apis[s] || (r.apis[s] = at(p.id))).set('value', x); }
+  catch (e) { post('sycore-map: set ' + t.name + ' > ' + p.name + ' failed: ' + e + '\n'); delete remote[t.id]; }
+  if (DEBUG_VAL) post('sycore-map: tvalue ' + t.name + ' ' + s + ' ' + p.name + ' x=' + x + '\n');
+}
+/** The slot names of the instrument on track `index` (SY.CORE's P1 / P2 routes), the target untouched. */
+function sendTrackSlots(index) {
+  var t = tracks[index];
+  if (!t) return;
+  var r = t.id === T.trackId ? null : remoteSlots(t.id), slots = r ? r.slots : T.slots;
+  var dev = t.id === T.trackId ? (T.device || T.rack || '') : (t.instrument || '');
+  toBridge('maptslots', JSON.stringify({ track: index, device: dev, slots: (slots || []).map(function (p) { return p ? p.name : null; }) }));
+}
 /** A value observer on slot s's parameter (a new one per target: an observer on "id 0" is an invalid path). */
 function makeObserver(s, pid) {
   var o = new LiveAPI(function (args) {
@@ -463,10 +508,12 @@ function anything() {
     case 'follow': setFollow(a[0]); break;
     case 'tables':
       try { setTables(JSON.parse(a.join(' '))); } catch (e) { post('sycore-map: bad tables\n'); break; }
-      cache = {}; slotCache = {}; foundCache = {};
+      cache = {}; slotCache = {}; foundCache = {}; remote = {};
       if (ready) retarget();
       break;
     case 'value': setSlot(a[0] | 0, +a[1]); break;
+    case 'tslots': if (ready) sendTrackSlots(a[0] | 0); break;   // track index: its slot names (1.8)
+    case 'tvalue': if (ready) setTrackSlot(a[0] | 0, a[1] | 0, +a[2]); break;   // track index, slot, 0–1 (1.8)
     case 'target':
       if (a[0] === 'follow') { setFollow(1); outlet(0, 'followtoggle', 1); }
       else if (ready && tracks[a[0] | 0]) { setFollow(0); outlet(0, 'followtoggle', 0); safeTarget(tracks[a[0] | 0].id); }

@@ -10,7 +10,7 @@ Times:
 | From | Message | Fields |
 |---|---|---|
 | client | `hello` | `client: "sycore"`, `app` (version string) |
-| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`), `tempo` (1.6+: true when it takes `tempo`) |
+| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`), `tempo` (1.6+: true when it takes `tempo`), `mapTrack` (1.8+: true when it takes `map-track`) |
 
 The device sends its `hello` and a `transport` on connect, without waiting for the client's.
 
@@ -62,6 +62,8 @@ One **SY.CORE Map** device in the set drives the instrument of a track — the s
 |---|---|---|
 | client | `map-tables` | `tables`: `{ <class_name>: [16 slots] }` — a slot is `{ param, min?, max?, int? }` (`param` = the parameter's `original_name`, `min` / `max` in its own units, default its full range; `int` = whole numbers) or `null`; class names `[A-Za-z0-9_]` — for Max for Live devices and plugins (`MxDeviceInstrument`, `PluginDevice`, `AuPluginDevice`) `class:device name`, e.g. `MxDeviceInstrument:Cheese Grater` — at most 64 |
 | client | `map` | `slot` (0–15), `value` (0–1, clamped): a slot moved |
+| client | `map-track` | `track` (index from 0), `slot` (0–15), `value` (0–1, clamped): slot *n* of the instrument on that track (its table, as if the Map drove it), **the Map's target unchanged** — SY.CORE's Sequencer P1 / P2 on its track(s). On the target's own track it is a `map`. The track's devices are re-read at most once a second; no instrument / an empty slot: ignored (bridge 1.8.0) |
+| client | `map-track-slots` | `track` (index from 0): the slot names of that track's instrument are asked for (SY.CORE's Sequencer P1 / P2 routes); answered by `map-track-slots` (bridge 1.8.0) |
 | client | `map-target` | `follow: true`, or `track` (index from 0) |
 | client | `map-params-request` | — (answered with `map-params`) |
 | client | `map-variation` | `index` (0–127), or `step` (1 next, -1 previous, wrapping): recall a Macro Variation of the Rack in focus; or `action`: `store` (the Macros now, as a new variation) / `delete` (the selected one) |
@@ -69,9 +71,10 @@ One **SY.CORE Map** device in the set drives the instrument of a track — the s
 | device | `map-info` | `track` (`index`, `name`), `device` (`name`, `cls` = class_name, `rack` or null), `mode` (`table`, `macros`, `mixed` = a Rack's configured Macros then the instrument's table, `auto` = no table: the instrument's first 16 parameters, `none`), `slots` (16: `{ param, name, value 0–1 }` or null), `variations` (`count`, `selected` -1 = none; null when no Rack) — on each change of target or variation |
 | device | `map-value` | `slot`, `value` (0–1): a slot's parameter moved in Live (mouse, automation, preset) |
 | device | `map-tracks` | `tracks`: `[{ index, name, instrument }]` (`instrument`: its first instrument's name, '' = none) |
+| device | `map-track-slots` | `track`, `device` (its instrument's name), `slots` (16: the slot's name or null) — the answer to `map-track-slots` (1.8) |
 | device | `map-params` | `cls`, `name`, `params`: `[{ name (original_name), shown, min, max, quantized }]` (at most 512) |
 
-The bridge keeps the last `map-tables` and `map-target` for a Map device loaded later (it says `mapready`), and the last `map-info` and `map-tracks` for a client connecting later. Inside Max: bridge → `[s sycore_map]` (`map tables <json>`, `map value <slot> <v>`, `map target <follow|track>`, `map params`), device → `[s sycore_map_in]` (`mapready`, `mapinfo <json>`, `mapvalue <slot> <v>`, `maptracks <json>`, `mapparams <json>`). Bridge 1.2.0.
+The bridge keeps the last `map-tables` and `map-target` for a Map device loaded later (it says `mapready`), and the last `map-info` and `map-tracks` for a client connecting later. Inside Max: bridge → `[s sycore_map]` (`map tables <json>`, `map value <slot> <v>`, `map tvalue <track> <slot> <v>`, `map tslots <track>` (1.8), `map target <follow|track>`, `map params`), device → `[s sycore_map_in]` (`mapready`, `mapinfo <json>`, `mapvalue <slot> <v>`, `maptracks <json>`, `maptslots <json>` (1.8), `mapparams <json>`). Bridge 1.2.0.
 
 ## Reconnection
 The client retries with back-off (0.5 s → 5 s) while enabled. After a reconnect it waits for the device's `hello` + first `transport` before sending MIDI again.

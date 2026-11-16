@@ -201,10 +201,15 @@ test('map: tables by class_name, slots clamped to 16, bad classes and slots drop
 });
 
 test('map: slot value 0–1 and the target', () => {
-  const { parseMap, parseMapTarget } = require('./link-core');
+  const { parseMap, parseMapTrack, parseMapTarget } = require('./link-core');
   assert.deepEqual(parseMap({ type: 'map', slot: 3, value: 0.25 }), { slot: 3, value: 0.25 });
   assert.deepEqual(parseMap({ type: 'map', slot: 0, value: 7 }), { slot: 0, value: 1 });
   assert.equal(parseMap({ type: 'map', slot: 16, value: 0.5 }), undefined);
+  assert.deepEqual(parseMapTrack({ type: 'map-track', track: 4, slot: 2, value: 0.5 }), { track: 4, slot: 2, value: 0.5 });
+  assert.deepEqual(parseMapTrack({ type: 'map-track', track: 0, slot: 15, value: -1 }), { track: 0, slot: 15, value: 0 });
+  assert.equal(parseMapTrack({ type: 'map-track', slot: 2, value: 0.5 }), undefined);
+  assert.equal(parseMapTrack({ type: 'map-track', track: 1, slot: 16, value: 0.5 }), undefined);
+  assert.equal(parseMapTrack({ type: 'map', track: 1, slot: 1, value: 0.5 }), undefined);
   assert.equal(parseMap({ type: 'map', slot: 1 }), undefined);
   assert.equal(parseMapTarget({ type: 'map-target', follow: true }), 'follow');
   assert.equal(parseMapTarget({ type: 'map-target', track: 4 }), 4);
@@ -244,6 +249,20 @@ test('map: the device\'s info, values, tracks and parameters for SY.CORE', () =>
   assert.deepEqual(mapTracksFromDevice('[{"index":0,"name":"1-Drums","instrument":"808 Kit"}]'), { type: 'map-tracks', tracks: [{ index: 0, name: '1-Drums', instrument: '808 Kit' }] });
   const p = mapParamsFromDevice(JSON.stringify({ cls: 'OriginalSimpler', name: 'Bass', params: [{ name: 'Volume', min: -36, max: 36 }, { name: 'F On', q: 1 }] }));
   assert.deepEqual(p.params, [{ name: 'Volume', shown: 'Volume', min: -36, max: 36, quantized: 0 }, { name: 'F On', shown: 'F On', min: 0, max: 1, quantized: 1 }]);
+});
+
+test('map-track-slots (1.8): asked by track, answered with the names', () => {
+  const { parseMapTrackSlots, mapTrackSlotsFromDevice } = require('./link-core');
+  assert.equal(parseMapTrackSlots({ type: 'map-track-slots', track: 3 }), 3);
+  assert.equal(parseMapTrackSlots({ type: 'map-track-slots', track: -1 }), undefined);
+  assert.equal(parseMapTrackSlots({ type: 'map-track', track: 3 }), undefined);
+  const m = mapTrackSlotsFromDevice(JSON.stringify({ track: 2, device: 'Drift', slots: ['Cutoff', null, 'Reso'] }));
+  assert.equal(m.type, 'map-track-slots');
+  assert.equal(m.track, 2);
+  assert.equal(m.device, 'Drift');
+  assert.equal(m.slots.length, 16);
+  assert.deepEqual(m.slots.slice(0, 4), ['Cutoff', null, 'Reso', null]);
+  assert.equal(mapTrackSlotsFromDevice('{"slots":[]}'), null);
 });
 
 // ── TimedQueue (MIDI ports played by the bridge, 1.4) ─────────────────────────
