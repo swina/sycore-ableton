@@ -6,7 +6,7 @@ SY.CORE runs in the browser (Drum Machine, Chord Prog, Sequencer, Arpeggiator, R
 
 ## Download
 
-**[SY.CORE Live Devices 1.7.0](https://github.com/swina/sycore-ableton/releases/tag/link-v1.7.0)**: a Live Pack (`.alp`) or a zip, the same four devices.
+**[SY.CORE Live Devices 1.8.0](https://github.com/swina/sycore-ableton/releases/tag/link-v1.8.0)**: a Live Pack (`.alp`) or a zip, the same four devices.
 
 | Device | What it does | How many |
 | --- | --- | --- |

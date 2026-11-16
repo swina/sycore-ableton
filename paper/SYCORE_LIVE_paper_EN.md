@@ -2,7 +2,7 @@
 
 *The generative part of your set, inside Ableton Live, while you play*
 
-November 4, 2026, updated November 16, 2026 · Devices: SY.CORE Live Devices 1.7.0 · Italian version: [SYCORE_LIVE_paper_IT.md](SYCORE_LIVE_paper_IT.md) · Online version: https://claude.ai/artifact/HW1Hr9GHfMYk7pxcBc78sc
+November 4, 2026, updated November 16, 2026 · Devices: SY.CORE Live Devices 1.8.0 · Italian version: [SYCORE_LIVE_paper_IT.md](SYCORE_LIVE_paper_IT.md) · Online version: https://claude.ai/artifact/HW1Hr9GHfMYk7pxcBc78sc
 
 ## In short
 
@@ -12,7 +12,7 @@ Live stays the DAW: it records, arranges, mixes and plays your instruments. SY.C
 
 **Who it is for:** musicians who play live or jam with Live and want generative parts on stage, not only in the studio; and anyone who wants their controllers to drive the whole rig, not one device at a time.
 
-**Status:** available today. The devices are at version 1.7.0, as a Live Pack or a zip (GitHub release `link-v1.7.0`); SY.CORE opens from its address in Chrome or Edge. The *Status and roadmap* section lists what is done and what is still open.
+**Status:** available today. The devices are at version 1.8.0, as a Live Pack or a zip (GitHub release `link-v1.8.0`); SY.CORE opens from its address in Chrome or Edge. The *Status and roadmap* section lists what is done and what is still open.
 
 ## The problem: generate first, play later
 
@@ -121,7 +121,7 @@ The comparison covers the product category; individual plugins change from versi
 | **Ableton Live** | Live 12 with Max for Live (Suite, or Standard + Max for Live) |
 | **Browser** | Chrome or Edge, with SY.CORE open; allow *local network access* if Chrome asks (SY.CORE talks to the bridge on `127.0.0.1:9400`) |
 | **System** | Windows 10/11 (tested) or macOS (expected to work, not yet tested) |
-| **Devices** | SY.CORE Live Devices 1.7.0: Live Pack (`.alp`) or zip, from the GitHub release `link-v1.7.0` or the *Ableton Live* page of the SY.CORE website |
+| **Devices** | SY.CORE Live Devices 1.8.0: Live Pack (`.alp`) or zip, from the GitHub release `link-v1.8.0` or the *Ableton Live* page of the SY.CORE website |
 
 **Setup:**
 
@@ -136,7 +136,7 @@ The comparison covers the product category; individual plugins change from versi
 
 | Stage | What it includes |
 | --- | --- |
-| **Available today** | SY.CORE Link 1.7.0 (bridge, Receive, Rig, Map) as Live Pack and zip; SY.CORE follows Live's clock, tempo and position; Live's Play / Stop and tempo from the Rig; Rig Controller with Launchpad Mini MK1, AKAI MIDImix, MIDI Learn and controller templates; per-track Trigger sync, Mute, Solo, Intensity, Density; sections; GEN and Mutate during playback; Seq Free; Now / Next; Performance workspace; SY.CORE Map with tables for Drift, Analog, Simpler and Racks; recording in Live as MIDI clips |
+| **Available today** | SY.CORE Link 1.8.0 (bridge, Receive, Rig, Map) as Live Pack and zip; SY.CORE follows Live's clock, tempo and position; Live's Play / Stop and tempo from the Rig; Rig Controller with Launchpad Mini MK1, AKAI MIDImix, MIDI Learn and controller templates; per-track Trigger sync, Mute, Solo, Intensity, Density; sections; GEN and Mutate during playback; Seq Free; Now / Next; Performance workspace; SY.CORE Map with tables for Drift, Analog, Simpler and Racks; the Sequencer's P1 / P2 on Map slots of any track (1.8); recording in Live as MIDI clips |
 | **Next** | Rig scenes: a slot or a section that also recalls sounds and routing; recall from Live's locators or scenes, with chase when starting mid-song; per-device Program Change rules; a table editor for SY.CORE Map and VST instruments |
 | **Later** | Live scenes as Song Composer sections; AI that knows your rig's synths and presets; a Live Set template; macOS testing; OSC for tablet surfaces |
 
