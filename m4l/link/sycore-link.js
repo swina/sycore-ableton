@@ -27,7 +27,7 @@ const { WebSocketServer } = require('ws');
 const { TimedQueue, PROTOCOL_VERSION, Transport, MidiScheduler, parseMessage, infoText, infoState, statsText, parseRig, rigName,
   parseMapTables, parseMap, parseMapTrack, parseMapTrackSlots, mapTrackSlotsFromDevice, parseMapTarget, parseMapVariation, mapInfoFromDevice, mapValueFromDevice, mapTracksFromDevice, mapParamsFromDevice } = require('./link-core');
 
-const VERSION = '1.8.0'; // 1.8.0: a Map slot on a given track, the target unchanged ('map-track', hello `mapTrack`: SY.CORE's Sequencer P1 / P2), its slot names ('map-track-slots') · 1.7.0: the Rig's Launchpad layout to the SY.CORE Rig devices (rig lpc / lpl, lp_* presses) · 1.6.0: tempo from SY.CORE ('tempo', hello `tempo`) · 1.5.0: Play / Stop Live from SY.CORE ('play', hello `play`) · 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
+const VERSION = '1.9.0'; // 1.9.0: Live's Master volume from SY.CORE's Audio Mixer Master ('master', hello `master`) · 1.8.0: a Map slot on a given track, the target unchanged ('map-track', hello `mapTrack`: SY.CORE's Sequencer P1 / P2), its slot names ('map-track-slots') · 1.7.0: the Rig's Launchpad layout to the SY.CORE Rig devices (rig lpc / lpl, lp_* presses) · 1.6.0: tempo from SY.CORE ('tempo', hello `tempo`) · 1.5.0: Play / Stop Live from SY.CORE ('play', hello `play`) · 1.4.2: Live's beat = the least late report of the last 2 s (steadier port timing) · 1.4.1: note-ons up to 250 ms late play at once (were dropped) · 1.4.0: MIDI ports played on Live's beat (midi.port, ports) · 1.3.5: map sync on start · 1.3.4: transport `at`, pong `nt` (the client corrects late reads) · 1.1: Rig GEN / FILL · 1.2: SY.CORE Map (P12) · 1.2.1: map mode 'mixed' · 1.3: Macro Variations · 1.3.1: tracks' instruments · 1.3.2: auto mode, tables by device name · 1.3.3: store / delete variations
 const SIM = process.argv.includes('--sim');
 const PORT = Number(process.env.SYCORE_LINK_PORT || 9400);
 
@@ -236,7 +236,7 @@ setInterval(safe('rig', sendRig), 1000);
 wss.on('connection', (ws, req) => {
   log('client connected from', req.headers.origin || '?');
   showInfo();
-  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max, ports: !!midiLib, play: true, tempo: true, mapTrack: true });
+  send(ws, { type: 'hello', device: 'sycore-link', version: VERSION, track: trackName, sim: !max, ports: !!midiLib, play: true, tempo: true, mapTrack: true, master: true });
   send(ws, tr.snapshot(now()));
   if (mapInfo) send(ws, mapInfo);
   if (mapTracks) send(ws, mapTracks);
@@ -258,6 +258,8 @@ wss.on('connection', (ws, req) => {
       case 'play': if (typeof msg.on === 'boolean') { log(msg.on ? 'play' : 'stop', 'from SY.CORE'); toMax('play', msg.on ? 1 : 0); } break;
       // Live's tempo (SY.CORE's TAP / tempo ± / knob), 20–999 BPM as Live takes it
       case 'tempo': { const b = Number(msg.bpm); if (Number.isFinite(b) && b >= 20 && b <= 999) toMax('tempo', Math.round(b * 100) / 100); break; }
+      // Live's Master volume (SY.CORE's Audio Mixer Master): the master track's Volume, 0–1 (0.85 = 0 dB)
+      case 'master': { const v = Number(msg.value); if (Number.isFinite(v)) toMax('master', Math.round(Math.max(0, Math.min(1, v)) * 10000) / 10000); break; }
       case 'ports': send(ws, { type: 'ports', names: listPorts() }); break;
       case 'rig': {
         const r = parseRig(msg);

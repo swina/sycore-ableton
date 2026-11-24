@@ -10,7 +10,7 @@ Times:
 | From | Message | Fields |
 |---|---|---|
 | client | `hello` | `client: "sycore"`, `app` (version string) |
-| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`), `tempo` (1.6+: true when it takes `tempo`), `mapTrack` (1.8+: true when it takes `map-track`) |
+| device | `hello` | `device: "sycore-link"`, `version`, `track` (Live track name, `""` if unknown), `sim` (true when no Live), `ports` (1.4+: true when it can play MIDI ports), `play` (1.5+: true when it takes `play`), `tempo` (1.6+: true when it takes `tempo`), `mapTrack` (1.8+: true when it takes `map-track`), `master` (1.9+: true when it takes `master`) |
 
 The device sends its `hello` and a `transport` on connect, without waiting for the client's.
 
@@ -24,6 +24,8 @@ Sent on every change of playing / tempo / signature, and every 50 ms while conne
 
 ## Tempo (client → device, 1.6+)
 `tempo`: `bpm` (20–999) — sets Live's tempo (`live_set tempo`, the same [live.object]). Sent by SY.CORE's TAP, tempo − / + and tempo knob (Rig Controls) when the clock is Live's. The device's next `transport` reports the new tempo.
+
+`master`: `value` (0–1, Live's fader: 0.85 = 0 dB) — sets Live's Master volume (`live_set master_track mixer_device volume`, its own [live.path] / [live.object]). Sent by SY.CORE's Audio Mixer Master (at most every 40 ms) when the device takes it (bridge 1.9+): the hardware synths' audio is in Live, SY.CORE cannot reach it otherwise.
 
 ## MIDI (client → device)
 `midi`: `data` (2–3 raw bytes of one channel message: note on/off, CC, pitch bend, program change, aftertouch), `beat` (when to play it; omitted = now).

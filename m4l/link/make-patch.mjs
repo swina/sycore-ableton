@@ -174,12 +174,17 @@ const bridge = build([
   ['start', 'script start', 2, 1, 250, 220, { kind: 'message' }],
   ['inst', 'script npm install', 2, 1, 350, 220, { kind: 'message' }],
   ['node', `node.script ${at('sycore-link.js')} @autostart 1`, 1, 2, 30, 260],
-  ['route', 'route midi3 midi2 clear info stats state rig map play tempo', 1, 11, 30, 300],
+  ['route', 'route midi3 midi2 clear info stats state rig map play tempo master', 1, 12, 30, 300],
   // Play / Stop from SY.CORE (bridge 1.5: 'transport'): Live's is_playing set on live_set
   ['pset', 'prepend set is_playing', 1, 1, 1280, 300],
   ['lobj', 'live.object', 2, 1, 1280, 330],
   // Tempo from SY.CORE (bridge 1.6: 'tempo'): live_set tempo
   ['tset', 'prepend set tempo', 1, 1, 1440, 300],
+  // Live's Master volume from SY.CORE (bridge 1.9: 'master'): live_set master_track mixer_device volume
+  ['mpath', 'path live_set master_track mixer_device volume', 2, 1, 1580, 220, { kind: 'message' }],
+  ['mlp', 'live.path', 1, 3, 1580, 250],
+  ['mset', 'prepend set value', 1, 1, 1580, 300],
+  ['mobj', 'live.object', 2, 1, 1580, 330],
   // SY.CORE Rig devices: the Rig state to them, their clicks to SY.CORE
   ['rigs', `s ${RIG_STATE}`, 1, 0, 1000, 300],
   ['rigr', `r ${RIG_PRESS}`, 1, 1, 1000, 220],
@@ -247,6 +252,7 @@ const bridge = build([
   ['route', 7, 'maps', 0], ['mapr', 0, 'node', 0],
   ['route', 8, 'pset', 0], ['pset', 0, 'lobj', 0], ['lp', 0, 'lobj', 1],
   ['route', 9, 'tset', 0], ['tset', 0, 'lobj', 0],
+  ['tb', 1, 'mpath', 0], ['mpath', 0, 'mlp', 0], ['mlp', 0, 'mobj', 1], ['route', 10, 'mset', 0], ['mset', 0, 'mobj', 0],
   ['node', 0, 'route', 0],
   // [zl.slice] sends the beat (right) before the bytes (left): the delay and the gate's way are set first.
   ['route', 0, 't3', 0], ['t3', 1, 'tr3', 0], ['t3', 0, 'sl3', 0],

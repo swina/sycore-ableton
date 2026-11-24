@@ -379,8 +379,9 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 11,
+          "numoutlets": 12,
           "outlettype": [
+            "",
             "",
             "",
             "",
@@ -396,10 +397,10 @@
           "patching_rect": [
             30,
             300,
-            429,
+            478,
             22
           ],
-          "text": "route midi3 midi2 clear info stats state rig map play tempo"
+          "text": "route midi3 midi2 clear info stats state rig map play tempo master"
         }
       },
       {
@@ -454,6 +455,80 @@
             22
           ],
           "text": "prepend set tempo"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-mpath",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1580,
+            220,
+            338,
+            22
+          ],
+          "text": "path live_set master_track mixer_device volume"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-mlp",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": [
+            "",
+            "",
+            ""
+          ],
+          "patching_rect": [
+            1580,
+            250,
+            79,
+            22
+          ],
+          "text": "live.path"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-mset",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1580,
+            300,
+            135,
+            22
+          ],
+          "text": "prepend set value"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-mobj",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1580,
+            330,
+            93,
+            22
+          ],
+          "text": "live.object"
         }
       },
       {
@@ -2145,6 +2220,66 @@
           ],
           "destination": [
             "obj-lobj",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-tb",
+            1
+          ],
+          "destination": [
+            "obj-mpath",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-mpath",
+            0
+          ],
+          "destination": [
+            "obj-mlp",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-mlp",
+            0
+          ],
+          "destination": [
+            "obj-mobj",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route",
+            10
+          ],
+          "destination": [
+            "obj-mset",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-mset",
+            0
+          ],
+          "destination": [
+            "obj-mobj",
             0
           ]
         }
